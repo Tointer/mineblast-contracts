@@ -23,7 +23,7 @@ contract MiniChefV2 is Ownable{
     /// `allocPoint` The amount of allocation points assigned to the pool.
     /// Also known as the amount of SUSHI to distribute per block.
     struct PoolInfo {
-        uint128 accSushiPerShare;
+        uint128 accPerShare;
         uint64 lastRewardTime;
         uint64 allocPoint;
     }
@@ -54,7 +54,7 @@ contract MiniChefV2 is Ownable{
     event Harvest(address indexed user, uint256 indexed pid, uint256 amount);
     event LogPoolAddition(uint256 indexed pid, uint256 allocPoint, IERC20 indexed lpToken);
     event LogSetPool(uint256 indexed pid, uint256 allocPoint);
-    event LogUpdatePool(uint256 indexed pid, uint64 lastRewardTime, uint256 lpSupply, uint256 accSushiPerShare);
+    event LogUpdatePool(uint256 indexed pid, uint64 lastRewardTime, uint256 lpSupply, uint256 accPerShare);
     event LogOutputPerSecond(uint256 outputPerSecond);
 
     /// @param _sushi The SUSHI token contract address.
@@ -79,7 +79,7 @@ contract MiniChefV2 is Ownable{
         poolInfo.push(PoolInfo({
             allocPoint: uint64(allocPoint),
             lastRewardTime: uint64(block.timestamp),
-            accSushiPerShare: 0
+            accPerShare: 0
         }));
         addedTokens[address(_lpToken)] = true;
         emit LogPoolAddition(lpToken.length - 1, allocPoint, _lpToken);
@@ -99,7 +99,7 @@ contract MiniChefV2 is Ownable{
     /// @param _outputPerSecond The amount of Sushi to be distributed per second.
     function setOutputPerSecond(uint256 _outputPerSecond) public onlyOwner {
         outputPerSecond = _outputPerSecond;
-        emit LogoutputPerSecond(_outputPerSecond);
+        emit LogOutputPerSecond(_outputPerSecond);
     }
 
     /// @notice View function to see pending SUSHI on frontend.
@@ -109,14 +109,14 @@ contract MiniChefV2 is Ownable{
     function pendingSushi(uint256 _pid, address _user) external view returns (uint256 pending) {
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
-        uint256 accSushiPerShare = pool.accSushiPerShare;
+        uint256 accPerShare = pool.accPerShare;
         uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
         if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
             uint256 time = block.timestamp - pool.lastRewardTime;
             uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
-            accSushiPerShare = accSushiPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply;
+            accPerShare = accPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply;
         }
-        pending = uint(int256(user.amount * accSushiPerShare / ACC_SUSHI_PRECISION) - user.rewardDebt);
+        pending = uint(int256(user.amount * accPerShare / ACC_SUSHI_PRECISION) - user.rewardDebt);
     }
 
     /// @notice Update reward variables for all pools. Be careful of gas spending!
@@ -138,11 +138,11 @@ contract MiniChefV2 is Ownable{
             if (lpSupply > 0) {
                 uint256 time = block.timestamp - pool.lastRewardTime;
                 uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
-                pool.accSushiPerShare = uint128(pool.accSushiPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply);
+                pool.accPerShare = uint128(pool.accPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply);
             }
             pool.lastRewardTime = uint64(block.timestamp);
             poolInfo[pid] = pool;
-            emit LogUpdatePool(pid, pool.lastRewardTime, lpSupply, pool.accSushiPerShare);
+            emit LogUpdatePool(pid, pool.lastRewardTime, lpSupply, pool.accPerShare);
         }
     }
 
@@ -156,7 +156,7 @@ contract MiniChefV2 is Ownable{
 
         // Effects
         user.amount = user.amount + amount;
-        user.rewardDebt = user.rewardDebt + int256(amount * pool.accSushiPerShare / ACC_SUSHI_PRECISION);
+        user.rewardDebt = user.rewardDebt + int256(amount * pool.accPerShare / ACC_SUSHI_PRECISION);
 
         lpToken[pid].transferFrom(msg.sender, address(this), amount);
 
@@ -172,7 +172,7 @@ contract MiniChefV2 is Ownable{
         UserInfo storage user = userInfo[pid][msg.sender];
 
         // Effects
-        user.rewardDebt = user.rewardDebt - (int256(amount * pool.accSushiPerShare / ACC_SUSHI_PRECISION));
+        user.rewardDebt = user.rewardDebt - (int256(amount * pool.accPerShare / ACC_SUSHI_PRECISION));
         user.amount = user.amount - amount;
 
         lpToken[pid].transfer(to, amount);
@@ -186,7 +186,7 @@ contract MiniChefV2 is Ownable{
     function harvest(uint256 pid, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
-        int256 accumulatedSushi = int256(user.amount * pool.accSushiPerShare / ACC_SUSHI_PRECISION);
+        int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_SUSHI_PRECISION);
         uint256 _pendingSushi = uint(accumulatedSushi - user.rewardDebt);
 
         // Effects
@@ -207,11 +207,11 @@ contract MiniChefV2 is Ownable{
     function withdrawAndHarvest(uint256 pid, uint256 amount, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
-        int256 accumulatedSushi = int256(user.amount * pool.accSushiPerShare / ACC_SUSHI_PRECISION);
+        int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_SUSHI_PRECISION);
         uint256 _pendingSushi = uint(accumulatedSushi -user.rewardDebt);
 
         // Effects
-        user.rewardDebt = accumulatedSushi - (int256(amount * pool.accSushiPerShare / ACC_SUSHI_PRECISION));
+        user.rewardDebt = accumulatedSushi - (int256(amount * pool.accPerShare / ACC_SUSHI_PRECISION));
         user.amount = user.amount - amount;
 
         // Interactions
