@@ -113,8 +113,8 @@ contract MiniChefV2 is Ownable{
         uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
         if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
             uint256 time = block.timestamp - pool.lastRewardTime;
-            uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
-            accPerShare = accPerShare + sushiReward * ACC_PRECISION / lpSupply;
+            uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
+            accPerShare = accPerShare + reward * ACC_PRECISION / lpSupply;
         }
         pending = uint(int256(user.amount * accPerShare / ACC_PRECISION) - user.rewardDebt);
     }
@@ -137,8 +137,8 @@ contract MiniChefV2 is Ownable{
             uint256 lpSupply = lpToken[pid].balanceOf(address(this));
             if (lpSupply > 0) {
                 uint256 time = block.timestamp - pool.lastRewardTime;
-                uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
-                pool.accPerShare = uint128(pool.accPerShare + sushiReward * ACC_PRECISION / lpSupply);
+                uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
+                pool.accPerShare = uint128(pool.accPerShare + reward * ACC_PRECISION / lpSupply);
             }
             pool.lastRewardTime = uint64(block.timestamp);
             poolInfo[pid] = pool;
@@ -186,11 +186,11 @@ contract MiniChefV2 is Ownable{
     function harvest(uint256 pid, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
-        int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_PRECISION);
-        uint256 _pending = uint(accumulatedSushi - user.rewardDebt);
+        int256 accumulated = int256(user.amount * pool.accPerShare / ACC_PRECISION);
+        uint256 _pending = uint(accumulated - user.rewardDebt);
 
         // Effects
-        user.rewardDebt = accumulatedSushi;
+        user.rewardDebt = accumulated;
 
         // Interactions
         if (_pending != 0) {
@@ -207,11 +207,11 @@ contract MiniChefV2 is Ownable{
     function withdrawAndHarvest(uint256 pid, uint256 amount, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
-        int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_PRECISION);
-        uint256 _pending = uint(accumulatedSushi -user.rewardDebt);
+        int256 accumulated = int256(user.amount * pool.accPerShare / ACC_PRECISION);
+        uint256 _pending = uint(accumulated -user.rewardDebt);
 
         // Effects
-        user.rewardDebt = accumulatedSushi - (int256(amount * pool.accPerShare / ACC_PRECISION));
+        user.rewardDebt = accumulated - (int256(amount * pool.accPerShare / ACC_PRECISION));
         user.amount = user.amount - amount;
 
         // Interactions
