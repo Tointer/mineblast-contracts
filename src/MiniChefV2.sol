@@ -45,7 +45,7 @@ contract MiniChefV2 is Ownable{
     /// @dev Total allocation points. Must be the sum of all allocation points in all pools.
     uint256 public totalAllocPoint;
 
-    uint256 public sushiPerSecond;
+    uint256 public outputPerSecond;
     uint256 private constant ACC_SUSHI_PRECISION = 1e12;
 
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount, address indexed to);
@@ -55,7 +55,7 @@ contract MiniChefV2 is Ownable{
     event LogPoolAddition(uint256 indexed pid, uint256 allocPoint, IERC20 indexed lpToken);
     event LogSetPool(uint256 indexed pid, uint256 allocPoint);
     event LogUpdatePool(uint256 indexed pid, uint64 lastRewardTime, uint256 lpSupply, uint256 accSushiPerShare);
-    event LogSushiPerSecond(uint256 sushiPerSecond);
+    event LogOutputPerSecond(uint256 outputPerSecond);
 
     /// @param _sushi The SUSHI token contract address.
     constructor(IERC20 _sushi) Ownable(msg.sender) {
@@ -96,10 +96,10 @@ contract MiniChefV2 is Ownable{
     }
 
     /// @notice Sets the sushi per second to be distributed. Can only be called by the owner.
-    /// @param _sushiPerSecond The amount of Sushi to be distributed per second.
-    function setSushiPerSecond(uint256 _sushiPerSecond) public onlyOwner {
-        sushiPerSecond = _sushiPerSecond;
-        emit LogSushiPerSecond(_sushiPerSecond);
+    /// @param _outputPerSecond The amount of Sushi to be distributed per second.
+    function setOutputPerSecond(uint256 _outputPerSecond) public onlyOwner {
+        outputPerSecond = _outputPerSecond;
+        emit LogoutputPerSecond(_outputPerSecond);
     }
 
     /// @notice View function to see pending SUSHI on frontend.
@@ -113,7 +113,7 @@ contract MiniChefV2 is Ownable{
         uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
         if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
             uint256 time = block.timestamp - pool.lastRewardTime;
-            uint256 sushiReward = time * sushiPerSecond * pool.allocPoint / totalAllocPoint;
+            uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
             accSushiPerShare = accSushiPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply;
         }
         pending = uint(int256(user.amount * accSushiPerShare / ACC_SUSHI_PRECISION) - user.rewardDebt);
@@ -137,7 +137,7 @@ contract MiniChefV2 is Ownable{
             uint256 lpSupply = lpToken[pid].balanceOf(address(this));
             if (lpSupply > 0) {
                 uint256 time = block.timestamp - pool.lastRewardTime;
-                uint256 sushiReward = time * sushiPerSecond * pool.allocPoint / totalAllocPoint;
+                uint256 sushiReward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
                 pool.accSushiPerShare = uint128(pool.accSushiPerShare + sushiReward * ACC_SUSHI_PRECISION / lpSupply);
             }
             pool.lastRewardTime = uint64(block.timestamp);
