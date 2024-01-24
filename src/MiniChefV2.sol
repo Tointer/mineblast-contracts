@@ -4,12 +4,7 @@ pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-
-/// @notice The (older) MasterChef contract gives out a constant number of OUTPUT_TOKEN tokens per block.
-/// It is the only address with minting rights for OUTPUT_TOKEN.
-/// The idea for this MasterChef V2 (MCV2) contract is therefore to be the owner of a dummy token
-/// that is deposited into the MasterChef V1 (MCV1) contract.
-/// The allocation point for this pool on MCV1 is the total allocation point for all pools that receive double incentives.
+/// @notice modified SushiSwap MiniChefV2 contract
 contract MiniChefV2 is Ownable{
     /// @notice Info of each MCV2 user.
     /// `amount` LP token amount the user has provided.
