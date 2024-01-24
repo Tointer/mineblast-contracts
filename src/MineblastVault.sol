@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @notice modified SushiSwap MiniChefV2 contract
-contract MiniChefV2 is Ownable{
+contract MineblastVault is Ownable{
     /// @notice Info of each MCV2 user.
     /// `amount` LP token amount the user has provided.
     /// `rewardDebt` The amount of OUTPUT_TOKEN entitled to the user.
@@ -53,7 +53,7 @@ contract MiniChefV2 is Ownable{
     event LogOutputPerSecond(uint256 outputPerSecond);
 
     /// @param _outputToken The OUTPUT_TOKEN token contract address.
-    constructor(IERC20 _outputToken, uint16 usdbWeightBps, uint128 totalSupply, uint64 duration) Ownable(msg.sender) {
+    constructor(IERC20 _outputToken, uint16 usdbWeightBps, uint128 supply, uint64 duration) Ownable(msg.sender) {
         OUTPUT_TOKEN = _outputToken;
 
         uint wethWeightBps = 10000 - usdbWeightBps;
@@ -66,8 +66,8 @@ contract MiniChefV2 is Ownable{
             add(usdbWeightBps, IERC20(0x4200000000000000000000000000000000000022)); // USDB
         }
 
-        _outputPerSecond.transferFrom(msg.sender, address(this), totalSupply);
-        setOutputPerSecond(totalSupply / duration);
+        _outputPerSecond.transferFrom(msg.sender, address(this), supply);
+        setOutputPerSecond(supply / duration);
     }
 
     /// @notice Returns the number of MCV2 pools.
