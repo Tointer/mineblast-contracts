@@ -187,17 +187,17 @@ contract MiniChefV2 is Ownable{
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
         int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_PRECISION);
-        uint256 _pendingSushi = uint(accumulatedSushi - user.rewardDebt);
+        uint256 _pending = uint(accumulatedSushi - user.rewardDebt);
 
         // Effects
         user.rewardDebt = accumulatedSushi;
 
         // Interactions
-        if (_pendingSushi != 0) {
-            SUSHI.transfer(to, _pendingSushi);
+        if (_pending != 0) {
+            SUSHI.transfer(to, _pending);
         }
 
-        emit Harvest(msg.sender, pid, _pendingSushi);
+        emit Harvest(msg.sender, pid, _pending);
     }
 
     /// @notice Withdraw LP tokens from MCV2 and harvest proceeds for transaction sender to `to`.
@@ -208,19 +208,19 @@ contract MiniChefV2 is Ownable{
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
         int256 accumulatedSushi = int256(user.amount * pool.accPerShare / ACC_PRECISION);
-        uint256 _pendingSushi = uint(accumulatedSushi -user.rewardDebt);
+        uint256 _pending = uint(accumulatedSushi -user.rewardDebt);
 
         // Effects
         user.rewardDebt = accumulatedSushi - (int256(amount * pool.accPerShare / ACC_PRECISION));
         user.amount = user.amount - amount;
 
         // Interactions
-        SUSHI.transfer(to, _pendingSushi);
+        SUSHI.transfer(to, _pending);
 
         lpToken[pid].transfer(to, amount);
 
         emit Withdraw(msg.sender, pid, amount, to);
-        emit Harvest(msg.sender, pid, _pendingSushi);
+        emit Harvest(msg.sender, pid, _pending);
     }
 
     /// @notice Withdraw without caring about rewards. EMERGENCY ONLY.
