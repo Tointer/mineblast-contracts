@@ -53,8 +53,21 @@ contract MiniChefV2 is Ownable{
     event LogOutputPerSecond(uint256 outputPerSecond);
 
     /// @param _outputToken The OUTPUT_TOKEN token contract address.
-    constructor(IERC20 _outputToken) Ownable(msg.sender) {
+    constructor(IERC20 _outputToken, uint16 usdbWeightBps, uint128 totalSupply, uint64 duration) Ownable(msg.sender) {
         OUTPUT_TOKEN = _outputToken;
+
+        uint wethWeightBps = 10000 - usdbWeightBps;
+
+        if(wethWeightBps > 0) {
+            add(wethWeightBps, IERC20(0x4200000000000000000000000000000000000023)); // WETH
+        }
+
+        if(usdbWeightBps > 0) {
+            add(usdbWeightBps, IERC20(0x4200000000000000000000000000000000000022)); // USDB
+        }
+
+        _outputPerSecond.transferFrom(msg.sender, address(this), totalSupply);
+        setOutputPerSecond(totalSupply / duration);
     }
 
     /// @notice Returns the number of MCV2 pools.
