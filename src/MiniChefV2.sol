@@ -5,15 +5,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-/// @notice The (older) MasterChef contract gives out a constant number of SUSHI tokens per block.
-/// It is the only address with minting rights for SUSHI.
+/// @notice The (older) MasterChef contract gives out a constant number of OUTPUT_TOKEN tokens per block.
+/// It is the only address with minting rights for OUTPUT_TOKEN.
 /// The idea for this MasterChef V2 (MCV2) contract is therefore to be the owner of a dummy token
 /// that is deposited into the MasterChef V1 (MCV1) contract.
 /// The allocation point for this pool on MCV1 is the total allocation point for all pools that receive double incentives.
 contract MiniChefV2 is Ownable{
     /// @notice Info of each MCV2 user.
     /// `amount` LP token amount the user has provided.
-    /// `rewardDebt` The amount of SUSHI entitled to the user.
+    /// `rewardDebt` The amount of OUTPUT_TOKEN entitled to the user.
     struct UserInfo {
         uint256 amount;
         int256 rewardDebt;
@@ -21,15 +21,15 @@ contract MiniChefV2 is Ownable{
 
     /// @notice Info of each MCV2 pool.
     /// `allocPoint` The amount of allocation points assigned to the pool.
-    /// Also known as the amount of SUSHI to distribute per block.
+    /// Also known as the amount of OUTPUT_TOKEN to distribute per block.
     struct PoolInfo {
         uint128 accPerShare;
         uint64 lastRewardTime;
         uint64 allocPoint;
     }
 
-    /// @notice Address of SUSHI contract.
-    IERC20 public immutable SUSHI;
+    /// @notice Address of OUTPUT_TOKEN contract.
+    IERC20 public immutable OUTPUT_TOKEN;
 
     /// @notice Info of each MCV2 pool.
     PoolInfo[] public poolInfo;
@@ -57,9 +57,9 @@ contract MiniChefV2 is Ownable{
     event LogUpdatePool(uint256 indexed pid, uint64 lastRewardTime, uint256 lpSupply, uint256 accPerShare);
     event LogOutputPerSecond(uint256 outputPerSecond);
 
-    /// @param _sushi The SUSHI token contract address.
-    constructor(IERC20 _sushi) Ownable(msg.sender) {
-        SUSHI = _sushi;
+    /// @param _outputToken The OUTPUT_TOKEN token contract address.
+    constructor(IERC20 _outputToken) Ownable(msg.sender) {
+        OUTPUT_TOKEN = _outputToken;
     }
 
     /// @notice Returns the number of MCV2 pools.
@@ -85,7 +85,7 @@ contract MiniChefV2 is Ownable{
         emit LogPoolAddition(lpToken.length - 1, allocPoint, _lpToken);
     }
 
-    /// @notice Update the given pool's SUSHI allocation point. Can only be called by the owner.
+    /// @notice Update the given pool's OUTPUT_TOKEN allocation point. Can only be called by the owner.
     /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _allocPoint New AP of the pool.
     function set(uint256 _pid, uint256 _allocPoint) public onlyOwner {
@@ -95,18 +95,18 @@ contract MiniChefV2 is Ownable{
         emit LogSetPool(_pid, _allocPoint);
     }
 
-    /// @notice Sets the sushi per second to be distributed. Can only be called by the owner.
-    /// @param _outputPerSecond The amount of Sushi to be distributed per second.
+    /// @notice Sets the OUTPUT_TOKEN per second to be distributed. Can only be called by the owner.
+    /// @param _outputPerSecond The amount of OUTPUT_TOKEN to be distributed per second.
     function setOutputPerSecond(uint256 _outputPerSecond) public onlyOwner {
         outputPerSecond = _outputPerSecond;
         emit LogOutputPerSecond(_outputPerSecond);
     }
 
-    /// @notice View function to see pending SUSHI on frontend.
+    /// @notice View function to see pending OUTPUT_TOKEN on frontend.
     /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _user Address of user.
-    /// @return pending SUSHI reward for a given user.
-    function pendingSushi(uint256 _pid, address _user) external view returns (uint256 pending) {
+    /// @return pending OUTPUT_TOKEN reward for a given user.
+    function pending(uint256 _pid, address _user) external view returns (uint256 pending) {
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accPerShare = pool.accPerShare;
@@ -146,7 +146,7 @@ contract MiniChefV2 is Ownable{
         }
     }
 
-    /// @notice Deposit LP tokens to MCV2 for SUSHI allocation.
+    /// @notice Deposit LP tokens to MCV2 for OUTPUT_TOKEN allocation.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param amount LP token amount to deposit.
     /// @param to The receiver of `amount` deposit benefit.
@@ -182,7 +182,7 @@ contract MiniChefV2 is Ownable{
 
     /// @notice Harvest proceeds for transaction sender to `to`.
     /// @param pid The index of the pool. See `poolInfo`.
-    /// @param to Receiver of SUSHI rewards.
+    /// @param to Receiver of OUTPUT_TOKEN rewards.
     function harvest(uint256 pid, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
@@ -194,7 +194,7 @@ contract MiniChefV2 is Ownable{
 
         // Interactions
         if (_pending != 0) {
-            SUSHI.transfer(to, _pending);
+            OUTPUT_TOKEN.transfer(to, _pending);
         }
 
         emit Harvest(msg.sender, pid, _pending);
@@ -203,7 +203,7 @@ contract MiniChefV2 is Ownable{
     /// @notice Withdraw LP tokens from MCV2 and harvest proceeds for transaction sender to `to`.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param amount LP token amount to withdraw.
-    /// @param to Receiver of the LP tokens and SUSHI rewards.
+    /// @param to Receiver of the LP tokens and OUTPUT_TOKEN rewards.
     function withdrawAndHarvest(uint256 pid, uint256 amount, address to) public {
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][msg.sender];
@@ -215,7 +215,7 @@ contract MiniChefV2 is Ownable{
         user.amount = user.amount - amount;
 
         // Interactions
-        SUSHI.transfer(to, _pending);
+        OUTPUT_TOKEN.transfer(to, _pending);
 
         lpToken[pid].transfer(to, amount);
 
