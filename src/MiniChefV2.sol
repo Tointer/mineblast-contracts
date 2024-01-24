@@ -29,7 +29,7 @@ contract MiniChefV2 is Ownable{
     /// @notice Info of each MCV2 pool.
     PoolInfo[] public poolInfo;
     /// @notice Address of the LP token for each MCV2 pool.
-    IERC20[] public lpToken;
+    IERC20[] public depositTokens;
 
     /// @notice Info of each user that stakes LP tokens.
     mapping (uint256 => mapping (address => UserInfo)) public userInfo;
@@ -65,34 +65,34 @@ contract MiniChefV2 is Ownable{
     /// @notice Add a new LP to the pool. Can only be called by the owner.
     /// DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     /// @param allocPoint AP of the new pool.
-    /// @param _lpToken Address of the LP ERC-20 token.
-    function add(uint256 allocPoint, IERC20 _lpToken) public onlyOwner {
-        require(addedTokens[address(_lpToken)] == false, "Token already added");
+    /// @param _depositToken Address of the LP ERC-20 token.
+    function add(uint256 allocPoint, IERC20 _depositToken) internal {
+        require(addedTokens[address(_depositToken)] == false, "Token already added");
         totalAllocPoint = totalAllocPoint + allocPoint;
-        lpToken.push(_lpToken);
+        depositTokens.push(_depositToken);
 
         poolInfo.push(PoolInfo({
             allocPoint: uint64(allocPoint),
             lastRewardTime: uint64(block.timestamp),
             accPerShare: 0
         }));
-        addedTokens[address(_lpToken)] = true;
-        emit LogPoolAddition(lpToken.length - 1, allocPoint, _lpToken);
+        addedTokens[address(_depositToken)] = true;
+        emit LogPoolAddition(depositTokens.length - 1, allocPoint, _depositToken);
     }
 
-    /// @notice Update the given pool's OUTPUT_TOKEN allocation point. Can only be called by the owner.
+    /// @notice Update the given pool's OUTPUT_TOKEN allocation point. Currently unused.
     /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _allocPoint New AP of the pool.
-    function set(uint256 _pid, uint256 _allocPoint) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint) internal {
         totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
         poolInfo[_pid].allocPoint = uint64(_allocPoint);
 
         emit LogSetPool(_pid, _allocPoint);
     }
 
-    /// @notice Sets the OUTPUT_TOKEN per second to be distributed. Can only be called by the owner.
+    /// @notice Sets the OUTPUT_TOKEN per second to be distributed. 
     /// @param _outputPerSecond The amount of OUTPUT_TOKEN to be distributed per second.
-    function setOutputPerSecond(uint256 _outputPerSecond) public onlyOwner {
+    function setOutputPerSecond(uint256 _outputPerSecond) internal {
         outputPerSecond = _outputPerSecond;
         emit LogOutputPerSecond(_outputPerSecond);
     }
@@ -101,11 +101,11 @@ contract MiniChefV2 is Ownable{
     /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _user Address of user.
     /// @return pending OUTPUT_TOKEN reward for a given user.
-    function pending(uint256 _pid, address _user) external view returns (uint256 pending) {
+    function getPending(uint256 _pid, address _user) external view returns (uint256 pending) {
         PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accPerShare = pool.accPerShare;
-        uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
+        uint256 lpSupply = depositTokens[_pid].balanceOf(address(this));
         if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
             uint256 time = block.timestamp - pool.lastRewardTime;
             uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
@@ -129,7 +129,7 @@ contract MiniChefV2 is Ownable{
     function updatePool(uint256 pid) public returns (PoolInfo memory pool) {
         pool = poolInfo[pid];
         if (block.timestamp > pool.lastRewardTime) {
-            uint256 lpSupply = lpToken[pid].balanceOf(address(this));
+            uint256 lpSupply = depositTokens[pid].balanceOf(address(this));
             if (lpSupply > 0) {
                 uint256 time = block.timestamp - pool.lastRewardTime;
                 uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
@@ -153,7 +153,7 @@ contract MiniChefV2 is Ownable{
         user.amount = user.amount + amount;
         user.rewardDebt = user.rewardDebt + int256(amount * pool.accPerShare / ACC_PRECISION);
 
-        lpToken[pid].transferFrom(msg.sender, address(this), amount);
+        depositTokens[pid].transferFrom(msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, pid, amount, to);
     }
@@ -170,7 +170,7 @@ contract MiniChefV2 is Ownable{
         user.rewardDebt = user.rewardDebt - (int256(amount * pool.accPerShare / ACC_PRECISION));
         user.amount = user.amount - amount;
 
-        lpToken[pid].transfer(to, amount);
+        depositTokens[pid].transfer(to, amount);
 
         emit Withdraw(msg.sender, pid, amount, to);
     }
@@ -212,7 +212,7 @@ contract MiniChefV2 is Ownable{
         // Interactions
         OUTPUT_TOKEN.transfer(to, _pending);
 
-        lpToken[pid].transfer(to, amount);
+        depositTokens[pid].transfer(to, amount);
 
         emit Withdraw(msg.sender, pid, amount, to);
         emit Harvest(msg.sender, pid, _pending);
@@ -228,7 +228,7 @@ contract MiniChefV2 is Ownable{
         user.rewardDebt = 0;
 
         // Note: transfer can fail or succeed if `amount` is zero.
-        lpToken[pid].transfer(to, amount);
+        depositTokens[pid].transfer(to, amount);
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
     }
 }
