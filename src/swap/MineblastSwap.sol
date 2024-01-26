@@ -10,7 +10,7 @@ import './interfaces/IUniswapV2Callee.sol';
 
 /// @notice shameless uniswapv2 fork with some changes
 /// removed skim() so people won't steal rebasing rewards
-/// removed protocol fee switch
+/// removed protocol fee switch and associated code to reduce gas
 contract MineblastSwap is IUniswapV2Pair, UniswapV2ERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
@@ -28,7 +28,6 @@ contract MineblastSwap is IUniswapV2Pair, UniswapV2ERC20 {
 
     uint public price0CumulativeLast;
     uint public price1CumulativeLast;
-    uint public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
 
     uint private unlocked = 1;
     modifier lock() {
@@ -96,10 +95,6 @@ contract MineblastSwap is IUniswapV2Pair, UniswapV2ERC20 {
         uint amount0 = balance0.sub(_reserve0);
         uint amount1 = balance1.sub(_reserve1);
 
-        if (kLast != 0) {
-            kLast = 0;
-        }
-
         uint _totalSupply = totalSupply; // gas savings
         if (_totalSupply == 0) {
             liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
@@ -123,10 +118,6 @@ contract MineblastSwap is IUniswapV2Pair, UniswapV2ERC20 {
         uint balance0 = IERC20(_token0).balanceOf(address(this));
         uint balance1 = IERC20(_token1).balanceOf(address(this));
         uint liquidity = balanceOf[address(this)];
-
-        if (kLast != 0) {
-            kLast = 0;
-        }
 
         uint _totalSupply = totalSupply; // gas savings
         amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
