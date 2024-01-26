@@ -11,7 +11,7 @@ import './interfaces/IUniswapV2Callee.sol';
 /// @notice shameless uniswapv2 fork with some changes
 /// removed skim() so people won't steal rebasing rewards
 /// removed protocol fee switch and associated code to reduce gas
-contract MineblastSwap is IUniswapV2Pair, UniswapV2ERC20 {
+contract MineblastSwapPair is IUniswapV2Pair, UniswapV2ERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
 
