@@ -88,26 +88,32 @@ contract MineblastSwapPair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function mint(address to) external lock returns (uint liquidity) {
+    function mint(address to, uint token0Amount, uint token1Amount) external lock returns (uint liquidity) {
+        sync(); //sync to account for rebasing rewards and not gifting them to minter
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-        uint balance0 = IERC20(token0).balanceOf(address(this));
-        uint balance1 = IERC20(token1).balanceOf(address(this));
-        uint amount0 = balance0.sub(_reserve0);
-        uint amount1 = balance1.sub(_reserve1);
+
+        //because of sync we can't expect transfers uniswap's way, need to transfer them here manually 
+        IERC20(token0).transferFrom(msg.sender, address(this), token0Amount);
+        IERC20(token1).transferFrom(msg.sender, address(this), token1Amount);
+
+        // reserves is equal to balances before transfers because of sync
+        // BUT this will break if token0 or token1 have fee on transfer or something like that
+        uint balance0 = _reserve0 + token0Amount; 
+        uint balance1 = _reserve1 + token1Amount;
 
         uint _totalSupply = totalSupply; // gas savings
         if (_totalSupply == 0) {
-            liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
+            liquidity = Math.sqrt(token0Amount.mul(token1Amount)).sub(MINIMUM_LIQUIDITY);
            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
+            liquidity = Math.min(token0Amount.mul(_totalSupply) / _reserve0, token1Amount.mul(_totalSupply) / _reserve1);
         }
         require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         _mint(to, liquidity);
 
         _update(balance0, balance1, _reserve0, _reserve1);
 
-        emit Mint(msg.sender, amount0, amount1);
+        emit Mint(msg.sender, token0Amount, token1Amount);
     }
 
     // this low-level function should be called from a contract which performs important safety checks
