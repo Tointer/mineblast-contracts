@@ -1,19 +1,15 @@
 pragma solidity =0.5.16;
 
-import './interfaces/IUniswapV2Factory.sol';
+import './interfaces/IMineblastSwapPairFactory.sol';
 import './MineblastSwapPair.sol';
 
-contract MineblastSwapPairFactory is IUniswapV2Factory {
-    address public feeTo;
-    address public feeToSetter;
-
+contract MineblastSwapPairFactory is IMineblastSwapPairFactory {
     mapping(address => mapping(address => address)) public getPair;
     address[] public allPairs;
 
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
-    constructor(address _feeToSetter) public {
-        feeToSetter = _feeToSetter;
+    constructor() public {
     }
 
     function allPairsLength() external view returns (uint) {
@@ -35,15 +31,5 @@ contract MineblastSwapPairFactory is IUniswapV2Factory {
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
         emit PairCreated(token0, token1, pair, allPairs.length);
-    }
-
-    function setFeeTo(address _feeTo) external {
-        require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
-        feeTo = _feeTo;
-    }
-
-    function setFeeToSetter(address _feeToSetter) external {
-        require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
-        feeToSetter = _feeToSetter;
     }
 }
