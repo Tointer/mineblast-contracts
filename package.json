@@ -1,0 +1,19 @@
+{
+  "name": "mineblast-contracts",
+  "version": "1.0.0",
+  "description": "Deleting things is easier than installing them, so this starter goal is to be bulky but cover most potential projects",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.1.1",
+    "hardhat": "^2.19.4"
+  }
+}
