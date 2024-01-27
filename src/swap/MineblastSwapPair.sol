@@ -1,6 +1,6 @@
 pragma solidity =0.5.16;
 
-import './interfaces/IUniswapV2Pair.sol';
+import './interfaces/IMineblastSwapPair.sol';
 import './UniswapV2ERC20.sol';
 import './libraries/Math.sol';
 import './libraries/UQ112x112.sol';
@@ -11,7 +11,7 @@ import './interfaces/IUniswapV2Callee.sol';
 /// @notice shameless uniswapv2 fork with some changes
 /// removed skim() so people won't steal rebasing rewards
 /// removed protocol fee switch and associated code to reduce gas
-contract MineblastSwapPair is IUniswapV2Pair, UniswapV2ERC20 {
+contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
 
@@ -179,7 +179,7 @@ contract MineblastSwapPair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // force reserves to match balances
-    function sync() external lock {
+    function sync() public lock {
         _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
     }
 }
