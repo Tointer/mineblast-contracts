@@ -66,7 +66,7 @@ contract MineblastVault is Ownable{
             add(usdbWeightBps, IERC20(0x4200000000000000000000000000000000000022)); // USDB
         }
 
-        _outputPerSecond.transferFrom(msg.sender, address(this), supply);
+        OUTPUT_TOKEN.transferFrom(msg.sender, address(this), supply);
         setOutputPerSecond(supply / duration);
     }
 
