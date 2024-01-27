@@ -1,7 +1,8 @@
-/** @type import('hardhat/config').HardhatUserConfig */
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-foundry";
 import "@nomicfoundation/hardhat-toolbox";
+import '@typechain/hardhat';
+
 
 const config: HardhatUserConfig = {
   solidity: {
