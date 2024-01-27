@@ -5,7 +5,6 @@ import './UniswapV2ERC20.sol';
 import './libraries/Math.sol';
 import './libraries/UQ112x112.sol';
 import './interfaces/IERC20.sol';
-import './interfaces/IUniswapV2Factory.sol';
 import './interfaces/IUniswapV2Callee.sol';
 
 /// @notice shameless uniswapv2 fork with some changes
@@ -89,7 +88,7 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to, uint token0Amount, uint token1Amount) external lock returns (uint liquidity) {
-        sync(); //sync to account for rebasing rewards and not gifting them to minter
+        internalSync(); //sync to account for rebasing rewards and not gifting them to minter
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
 
         //because of sync we can't expect transfers uniswap's way, need to transfer them here manually 
@@ -144,7 +143,7 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     function swap(uint token0AmountIn, uint token1AmountIn, uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
         require(token0AmountIn > 0 || token1AmountIn > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
-        sync(); //sync to account for rebasing rewards and not gifting them to swapper
+        internalSync(); //sync to account for rebasing rewards and not gifting them to swapper
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
 
@@ -180,6 +179,10 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
 
     // force reserves to match balances
     function sync() public lock {
+        _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
+    }
+
+    function internalSync () internal {
         _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
     }
 }
