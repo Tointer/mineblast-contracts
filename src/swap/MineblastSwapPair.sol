@@ -1,4 +1,4 @@
-pragma solidity =0.5.16;
+pragma solidity ^0.8.23;
 
 import './interfaces/IMineblastSwapPair.sol';
 import './UniswapV2ERC20.sol';
@@ -10,7 +10,7 @@ import './interfaces/IUniswapV2Callee.sol';
 /// @notice shameless uniswapv2 fork with some changes
 /// removed skim() so people won't steal rebasing rewards
 /// removed protocol fee switch and associated code to reduce gas
-contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
+contract MineblastSwapPair is UniswapV2ERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
 
@@ -28,17 +28,15 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     uint public price0CumulativeLast;
     uint public price1CumulativeLast;
 
-    uint[vwapPeriod] public price1Cumulatives;
-    uint64[vwapPeriod] public cumulativesTimestamps;
-    uint8 private constant vwapPeriod = 32;
+    uint[32] public price1Cumulatives;
+    uint64[32] public cumulativesTimestamps;
     uint8 private cumulativesIndex;
 
-    function getAveragePrice1(uint112 amountIn, uint32 maxSecondWindow) external view returns (uint){
-        uint64[vwapPeriod] memory mTimestamps = cumulativesTimestamps;
-        uint result = 0;
+    function getAveragePrice1(uint112 amountIn, uint32 maxSecondWindow) external view returns (uint result){
+        uint64[32] memory mTimestamps = cumulativesTimestamps;
 
-        for (uint8 i = cumulativesIndex; i < vwapPeriod;) {
-            i = i == 0 ? vwapPeriod - 1 : i - 1;
+        for (uint8 i = cumulativesIndex; i < 32;) {
+            i = i == 0 ? 31 : i - 1;
             if (mTimestamps[i] + maxSecondWindow < block.timestamp) {
                 uint neededPriceCumulative = price1Cumulatives[i];
                 uint timeElapsed = block.timestamp - mTimestamps[i];
@@ -83,7 +81,7 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     );
     event Sync(uint112 reserve0, uint112 reserve1);
 
-    constructor() public {
+    constructor() {
         factory = msg.sender;
     }
 
@@ -96,22 +94,26 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
 
     // update reserves and, on the first call per block, price accumulators
     function _update(uint balance0, uint balance1, uint112 _reserve0, uint112 _reserve1) private {
-        require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
+        require(balance0 <= type(uint112).max && balance1 <= type(uint112).max, 'UniswapV2: OVERFLOW');
         uint32 blockTimestamp = uint32(block.timestamp % 2**32);
-        uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
-        if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
-            // * never overflows, and + overflow is desired
-            price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
-            price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
 
-            price1Cumulatives[cumulativesIndex] = price1CumulativeLast;
-            cumulativesTimestamps[cumulativesIndex] = uint64(block.timestamp);
-            cumulativesIndex = (cumulativesIndex + 1) % vwapPeriod;
+        unchecked{
+            uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
+
+            if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
+                // * never overflows, and + overflow is desired
+                price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
+                price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+
+                price1Cumulatives[cumulativesIndex] = price1CumulativeLast;
+                cumulativesTimestamps[cumulativesIndex] = uint64(block.timestamp);
+                cumulativesIndex = (cumulativesIndex + 1) % 32;
+            }
+            reserve0 = uint112(balance0);
+            reserve1 = uint112(balance1);
+            blockTimestampLast = blockTimestamp;
+            emit Sync(reserve0, reserve1);
         }
-        reserve0 = uint112(balance0);
-        reserve1 = uint112(balance1);
-        blockTimestampLast = blockTimestamp;
-        emit Sync(reserve0, reserve1);
     }
 
     // this low-level function should be called from a contract which performs important safety checks

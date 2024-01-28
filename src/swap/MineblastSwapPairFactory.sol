@@ -1,16 +1,13 @@
-pragma solidity =0.5.16;
+pragma solidity ^0.8.23;
 
 import './interfaces/IMineblastSwapPairFactory.sol';
 import './MineblastSwapPair.sol';
 
-contract MineblastSwapPairFactory is IMineblastSwapPairFactory {
-    mapping(address => mapping(address => address)) public getPair;
-    address[] public allPairs;
-
+contract MineblastSwapPairFactory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
-    constructor() public {
-    }
+    mapping(address => mapping(address => address)) public getPair;
+    address[] public allPairs;
 
     function allPairsLength() external view returns (uint) {
         return allPairs.length;
