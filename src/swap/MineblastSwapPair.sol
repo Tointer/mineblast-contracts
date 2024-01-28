@@ -33,17 +33,18 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     uint8 private constant vwapPeriod = 32;
     uint8 private cumulativesIndex;
 
-    function getAveragePrice1(uint amountIn, uint32 maxSecondWindow) external view returns (uint){
-        uint64[vwapPeriod] memory cumulativesTimestamps = cumulativesTimestamps;
+    function getAveragePrice1(uint112 amountIn, uint32 maxSecondWindow) external view returns (uint){
+        uint64[vwapPeriod] memory mTimestamps = cumulativesTimestamps;
         uint result = 0;
 
         for (uint8 i = cumulativesIndex; i < vwapPeriod;) {
             i = i == 0 ? vwapPeriod - 1 : i - 1;
-            if (cumulativesTimestamps[i] + maxSecondWindow < block.timestamp) {
-                uint neededPriceCumulative = price1Cumulatives[i]
-                uint timeElapsed = block.timestamp - cumulativesTimestamps[i];
-                uint price1Average = FixedPoint.uq112x112(uint224(neededPriceCumulative.sub(price1CumulativeLast).div(timeElapsed)));
-                result = result.add(price1Average.mul(amountIn).decode144());
+            if (mTimestamps[i] + maxSecondWindow < block.timestamp) {
+                uint neededPriceCumulative = price1Cumulatives[i];
+                uint timeElapsed = block.timestamp - mTimestamps[i];
+                uint price1Average = price1CumulativeLast.sub(neededPriceCumulative) / timeElapsed;
+
+                result = (price1Average * amountIn) / (2**112);
 
                 break;
             }
