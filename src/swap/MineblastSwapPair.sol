@@ -28,6 +28,29 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
     uint public price0CumulativeLast;
     uint public price1CumulativeLast;
 
+    uint[vwapPeriod] public price1Cumulatives;
+    uint64[vwapPeriod] public cumulativesTimestamps;
+    uint8 private constant vwapPeriod = 32;
+    uint8 private cumulativesIndex;
+
+    function getAveragePrice1(uint amountIn, uint32 maxSecondWindow) external view returns (uint){
+        uint64[vwapPeriod] memory cumulativesTimestamps = cumulativesTimestamps;
+        uint result = 0;
+
+        for (uint8 i = cumulativesIndex; i < vwapPeriod;) {
+            i = i == 0 ? vwapPeriod - 1 : i - 1;
+            if (cumulativesTimestamps[i] + maxSecondWindow < block.timestamp) {
+                uint neededPriceCumulative = price1Cumulatives[i]
+                uint timeElapsed = block.timestamp - cumulativesTimestamps[i];
+                uint price1Average = FixedPoint.uq112x112(uint224(neededPriceCumulative.sub(price1CumulativeLast).div(timeElapsed)));
+                result = result.add(price1Average.mul(amountIn).decode144());
+
+                break;
+            }
+        }
+
+    }
+
     uint private unlocked = 1;
     modifier lock() {
         require(unlocked == 1, 'UniswapV2: LOCKED');
@@ -79,6 +102,10 @@ contract MineblastSwapPair is IMineblastSwapPair, UniswapV2ERC20 {
             // * never overflows, and + overflow is desired
             price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
             price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+
+            price1Cumulatives[cumulativesIndex] = price1CumulativeLast;
+            cumulativesTimestamps[cumulativesIndex] = uint64(block.timestamp);
+            cumulativesIndex = (cumulativesIndex + 1) % vwapPeriod;
         }
         reserve0 = uint112(balance0);
         reserve1 = uint112(balance1);
