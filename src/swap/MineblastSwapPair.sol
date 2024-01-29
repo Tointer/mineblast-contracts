@@ -37,7 +37,7 @@ contract MineblastSwapPair is UniswapV2ERC20 {
 
         for (uint8 i = cumulativesIndex; i < 32;) {
             i = i == 0 ? 31 : i - 1;
-            if (mTimestamps[i] + maxSecondWindow < block.timestamp) {
+            if (mTimestamps[i] + maxSecondWindow < block.timestamp || i == cumulativesIndex) {
                 uint neededPriceCumulative = price1Cumulatives[i];
                 uint timeElapsed = block.timestamp - mTimestamps[i];
                 uint price1Average = price1CumulativeLast.sub(neededPriceCumulative) / timeElapsed;
