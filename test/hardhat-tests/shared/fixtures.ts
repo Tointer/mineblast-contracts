@@ -1,10 +1,9 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
 
-import { expandTo18Decimals } from './utilities'
-import { MineblastSwapPairFactory } from "../../typechain-types"
-import { MineblastSwapPair } from "../../typechain-types"
-import { ERC20Mock } from "../../typechain-types"
+import { MineblastSwapPairFactory } from "../../../typechain-types"
+import { MineblastSwapPair } from "../../../typechain-types"
+import { ERC20Mock } from "../../../typechain-types"
 
 
 interface FactoryFixture {
