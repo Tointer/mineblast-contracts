@@ -4,7 +4,7 @@ import './interfaces/IMineblastSwapPair.sol';
 import './UniswapV2ERC20.sol';
 import './libraries/Math.sol';
 import './libraries/UQ112x112.sol';
-import './interfaces/IERC20.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import './interfaces/IUniswapV2Callee.sol';
 
 /// @notice shameless uniswapv2 fork with some changes
