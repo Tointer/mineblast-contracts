@@ -32,15 +32,26 @@ contract MineblastSwapPair is UniswapV2ERC20 {
     uint64[32] public cumulativesTimestamps;
     uint8 private cumulativesIndex;
 
-    function getAveragePrice1(uint112 amountIn, uint32 maxSecondWindow) external view returns (uint result){
+    function getAveragePrice(uint112 amountIn, uint32 maxSecondWindow) external view returns (uint result){
         uint64[32] memory mTimestamps = cumulativesTimestamps;
+        uint8 _cumulativesIndex = cumulativesIndex;
+        uint _price1CumulativeLast = price1CumulativeLast;
 
-        for (uint8 i = cumulativesIndex; i < 32;) {
+        if(blockTimestampLast != block.timestamp){
+            uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+            unchecked{
+                uint32 timeElapsed = blockTimestamp - blockTimestampLast; 
+                (uint112 _reserve0, uint112 _reserve1,) = getReserves();
+                _price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+            }
+        }
+
+        for (uint8 i = _cumulativesIndex; i < 32;) {
             i = i == 0 ? 31 : i - 1;
-            if (mTimestamps[i] + maxSecondWindow < block.timestamp || i == cumulativesIndex) {
+            if (mTimestamps[i] + maxSecondWindow < block.timestamp || i == _cumulativesIndex) {
                 uint neededPriceCumulative = price1Cumulatives[i];
                 uint timeElapsed = block.timestamp - mTimestamps[i];
-                uint price1Average = price1CumulativeLast.sub(neededPriceCumulative) / timeElapsed;
+                uint price1Average = _price1CumulativeLast.sub(neededPriceCumulative) / timeElapsed;
 
                 result = (price1Average * amountIn) / (2**112);
 
