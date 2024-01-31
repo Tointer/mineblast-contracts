@@ -1,6 +1,5 @@
 pragma solidity ^0.8.23;
 
-import './interfaces/IMineblastSwapPairFactory.sol';
 import './MineblastSwapPair.sol';
 
 contract MineblastSwapPairFactory {
