@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
+import "./blast/IBlast.sol";
+import "./blast/IERC20Rebasing.sol";
+import './swap/MineblastSwapPair.sol';
+import 'solmate/tokens/WETH.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @notice modified SushiSwap MiniChefV2 contract
-contract MineblastVault is Ownable{
+contract MineblastVault{
     /// @notice Info of each MCV2 user.
     /// `amount` LP token amount the user has provided.
     /// `rewardDebt` The amount of OUTPUT_TOKEN entitled to the user.
@@ -40,6 +43,11 @@ contract MineblastVault is Ownable{
     /// @dev Total allocation points. Must be the sum of all allocation points in all pools.
     uint256 public totalAllocPoint;
 
+    MineblastSwapPair public swapPair;
+    WETH public weth = WETH(payable(0x4200000000000000000000000000000000000023));
+    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);
+    uint64 public duration;
+
     uint256 public outputPerSecond;
     uint256 private constant ACC_PRECISION = 1e12;
 
@@ -53,21 +61,41 @@ contract MineblastVault is Ownable{
     event LogOutputPerSecond(uint256 outputPerSecond);
 
     /// @param _outputToken The OUTPUT_TOKEN token contract address.
-    constructor(IERC20 _outputToken, uint16 usdbWeightBps, uint128 supply, uint64 duration) Ownable(msg.sender) {
+    constructor(
+        IERC20 _outputToken, 
+        MineblastSwapPair _swapPair, 
+        uint128 supply, 
+        uint64 _duration
+    ) {
         OUTPUT_TOKEN = _outputToken;
+        swapPair = _swapPair;
+        weth.approve(address(swapPair), type(uint256).max);
+        duration = _duration;
+        BLAST.configure(YieldMode.CLAIMABLE, GasMode.CLAIMABLE, address(this));
 
-        uint wethWeightBps = 10000 - usdbWeightBps;
-
-        if(wethWeightBps > 0) {
-            add(wethWeightBps, IERC20(0x4200000000000000000000000000000000000023)); // WETH
-        }
-
-        if(usdbWeightBps > 0) {
-            add(usdbWeightBps, IERC20(0x4200000000000000000000000000000000000022)); // USDB
-        }
+        add(10000, IERC20(address(weth))); 
 
         OUTPUT_TOKEN.transferFrom(msg.sender, address(this), supply);
         setOutputPerSecond(supply / duration);
+    }
+
+    function yieldToLiquidity() public {
+        uint claimable = IERC20Rebasing(address(weth)).getClaimableAmount(address(this));
+        if (claimable < 1e15){
+            return;
+        }
+
+        BLAST.claimYield(address(weth), address(this), claimable);
+        BLAST.claimAllGas(address(this), address(this));
+        weth.deposit{value: address(this).balance}();
+
+        uint amountWETH = claimable + address(this).balance;
+        uint amountToken = swapPair.getAveragePrice(uint112(amountWETH), 200);
+        swapPair.mint(address(this), amountWETH, amountToken);
+
+        uint newSupply = OUTPUT_TOKEN.balanceOf(address(this));
+        uint newOutputPerSecond = newSupply / duration;
+        setOutputPerSecond(newOutputPerSecond);
     }
 
     /// @notice Returns the number of MCV2 pools.
@@ -207,6 +235,8 @@ contract MineblastVault is Ownable{
 
         emit Harvest(msg.sender, pid, _pending);
     }
+
+    
 
     /// @notice Withdraw LP tokens from MCV2 and harvest proceeds for transaction sender to `to`.
     /// @param pid The index of the pool. See `poolInfo`.
