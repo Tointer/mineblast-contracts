@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
+import {YieldMode} from "./BlastStructs.sol";
+
 interface IERC20Rebasing {
+  // changes the yield mode of the caller and update the balance
+  // to reflect the configuration
+  function configure(YieldMode) external returns (uint256);
   // "claimable" yield mode accounts can call this this claim their yield
   // to another address
   function claim(address recipient, uint256 amount) external returns (uint256);
