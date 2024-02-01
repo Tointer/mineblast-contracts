@@ -85,7 +85,7 @@ contract MineblastVault{
             return;
         }
 
-        BLAST.claimYield(address(weth), address(this), claimable);
+        IERC20Rebasing(address(weth)).claim(address(this), claimable);
         BLAST.claimAllGas(address(this), address(this));
         weth.deposit{value: address(this).balance}();
 
