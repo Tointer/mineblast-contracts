@@ -1,8 +1,9 @@
 pragma solidity ^0.8.23;
 
 import './MineblastSwapPair.sol';
+import './interfaces/IMineblastSwapPairFactory.sol';
 
-contract MineblastSwapPairFactory {
+contract MineblastSwapPairFactory is IMineblastSwapPairFactory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
     mapping(address => mapping(address => address)) public getPair;
