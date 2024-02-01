@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MineblastFactory is Ownable{
+    event VaultCreated(address vault, address pair, address token);
 
     IMineblastSwapPairFactory public swapPairFactory;
     address public wethAddress = address(0x4200000000000000000000000000000000000023);
@@ -20,24 +21,24 @@ contract MineblastFactory is Ownable{
         swapPairFactory = IMineblastSwapPairFactory(_swapPairFactory);
     }
 
-    function createVaultWithExistingToken(
-        uint amount,
-        address token, 
-        uint64 duration
-    ) external returns (address) {
-        require(amount > 0, "Amount must be greater than 0");
+    // function createVaultWithExistingToken(
+    //     uint amount,
+    //     address token, 
+    //     uint64 duration
+    // ) external returns (address) {
+    //     require(amount > 0, "Amount must be greater than 0");
 
-        address pairAddress = getPairCreateIfNeeded(wethAddress, token);
-        MineblastVault vault = new MineblastVault(token, pairAddress, duration);
+    //     address pairAddress = getPairCreateIfNeeded(wethAddress, token);
+    //     MineblastVault vault = new MineblastVault(token, pairAddress, duration);
 
-        uint protocolCut = amount * baseProtocolShareBps / 10000;
-        uint finalAmount = amount - protocolCut;
+    //     uint protocolCut = amount * baseProtocolShareBps / 10000;
+    //     uint finalAmount = amount - protocolCut;
 
-        IERC20(token).transfer(owner(), protocolCut);
-        IERC20(token).approve(address(vault), finalAmount);
-        vault.initialize(finalAmount);
-        return address(vault);
-    }
+    //     IERC20(token).transfer(owner(), protocolCut);
+    //     IERC20(token).approve(address(vault), finalAmount);
+    //     vault.initialize(finalAmount);
+    //     return address(vault);
+    // }
 
     function createVaultWithNewToken(
         uint supply,
@@ -59,6 +60,8 @@ contract MineblastFactory is Ownable{
 
         token.approve(address(vault), finalAmount);
         vault.initialize(finalAmount);
+
+        emit VaultCreated(address(vault), pairAddress, address(token));
         
         return (address(vault), pairAddress, address(token));
     }
