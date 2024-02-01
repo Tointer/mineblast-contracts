@@ -45,7 +45,7 @@ contract MineblastFactory is Ownable{
         string memory symbol, 
         uint64 duration,
         uint16 ownerSupplyBps
-    ) external returns (address vaultAddress, address tokenAddress) {
+    ) external returns (address vaultAddress, address pairAddress, address tokenAddress) {
         require(supply > 0, "supply must be greater than 0");
         require(ownerSupplyBps <= maxOwnerShareBps, "Owner supply must be less than or equal to the max owner share");
         
@@ -66,7 +66,7 @@ contract MineblastFactory is Ownable{
         token.approve(address(vault), finalAmount);
         vault.initialize(finalAmount);
         
-        return (address(vault), address(token));
+        return (address(vault), pairAddress, address(token));
     }
 
     function getPairCreateIfNeeded(
