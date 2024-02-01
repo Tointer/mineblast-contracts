@@ -48,6 +48,7 @@ contract MineblastVault is Ownable{
     WETH public weth = WETH(payable(0x4200000000000000000000000000000000000023));
     IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);
     uint64 public duration;
+    uint64 public endDate;
 
     uint256 public outputPerSecond;
     uint256 private constant ACC_PRECISION = 1e12;
@@ -70,6 +71,7 @@ contract MineblastVault is Ownable{
         OUTPUT_TOKEN = IERC20(_outputToken);
         swapPair = MineblastSwapPair(_swapPair);
         duration = _duration;
+        endDate = uint64(block.timestamp + _duration);
 
         //configure gas and yield claim modes
         BLAST.configure(YieldMode.CLAIMABLE, GasMode.CLAIMABLE, address(this));
@@ -160,8 +162,10 @@ contract MineblastVault is Ownable{
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accPerShare = pool.accPerShare;
         uint256 lpSupply = depositTokens[_pid].balanceOf(address(this));
-        if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
-            uint256 time = block.timestamp - pool.lastRewardTime;
+        uint64 lastRewardTimestamp = block.timestamp > endDate ? endDate : uint64(block.timestamp);
+
+        if (lastRewardTimestamp > pool.lastRewardTime && lpSupply != 0) {
+            uint256 time = lastRewardTimestamp - pool.lastRewardTime;
             uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
             accPerShare = accPerShare + reward * ACC_PRECISION / lpSupply;
         }
@@ -182,14 +186,17 @@ contract MineblastVault is Ownable{
     /// @return pool Returns the pool that was updated.
     function updatePool(uint256 pid) public returns (PoolInfo memory pool) {
         pool = poolInfo[pid];
-        if (block.timestamp > pool.lastRewardTime) {
+
+        uint64 lastRewardTimestamp = block.timestamp > endDate ? endDate : uint64(block.timestamp);
+
+        if (lastRewardTimestamp > pool.lastRewardTime) {
             uint256 lpSupply = depositTokens[pid].balanceOf(address(this));
             if (lpSupply > 0) {
-                uint256 time = block.timestamp - pool.lastRewardTime;
+                uint256 time = lastRewardTimestamp - pool.lastRewardTime;
                 uint256 reward = time * outputPerSecond * pool.allocPoint / totalAllocPoint;
                 pool.accPerShare = uint128(pool.accPerShare + reward * ACC_PRECISION / lpSupply);
             }
-            pool.lastRewardTime = uint64(block.timestamp);
+            pool.lastRewardTime = uint64(lastRewardTimestamp);
             poolInfo[pid] = pool;
             emit LogUpdatePool(pid, pool.lastRewardTime, lpSupply, pool.accPerShare);
         }
