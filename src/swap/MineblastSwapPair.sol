@@ -42,6 +42,9 @@ contract MineblastSwapPair is UniswapV2ERC20 {
             unchecked{
                 uint32 timeElapsed = blockTimestamp - blockTimestampLast; 
                 (uint112 _reserve0, uint112 _reserve1,) = getReserves();
+                if(_reserve0 == 0 || _reserve1 == 0){
+                    return 0;
+                }
                 _price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
             }
         }
