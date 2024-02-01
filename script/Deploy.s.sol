@@ -16,27 +16,25 @@ contract DeployScript is Script {
     }
 
     function run() public {
-        function run() public {
-            uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
-            uint supply = 1e27;
-            uint16 creatorShare = 1000;
-            uint64 duration = 20 days;
+        uint supply = 1e27;
+        uint16 creatorShare = 1000;
+        uint64 duration = 20 days;
 
-            vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(deployerPrivateKey);
 
-            MineblastSwapPairFactory swapPairFactory = new MineblastSwapPairFactory();
-            MineblastFactory mineblastFactory = new MineblastFactory(address(swapPairFactory));
-            MineblastRouter router = new MineblastRouter(address(swapPairFactory), address(mineblastFactory));
+        MineblastSwapPairFactory swapPairFactory = new MineblastSwapPairFactory();
+        MineblastFactory mineblastFactory = new MineblastFactory(address(swapPairFactory));
+        MineblastRouter router = new MineblastRouter(address(swapPairFactory), payable(0x4200000000000000000000000000000000000023));
 
-            (address vaultAddress, address swapPairAddress, address tokenAddress) = 
-            mineblastFactory.createVaultWithNewToken(supply, "MIBTestToken", "tMIB", duration, creatorShare);
-            
-            vm.stopBroadcast();
+        (address vaultAddress, address swapPairAddress, address tokenAddress) = 
+        mineblastFactory.createVaultWithNewToken(supply, "MIBTestToken", "tMIB", duration, creatorShare);
+        
+        vm.stopBroadcast();
 
-            console2.log("Vault address: ", vaultAddress);
-            console2.log("Swap pair address: ", swapPairAddress);
-            console2.log("Token address: ", tokenAddress);
-        }
+        console2.log("Vault address: ", vaultAddress);
+        console2.log("Swap pair address: ", swapPairAddress);
+        console2.log("Token address: ", tokenAddress);
     }
 }
