@@ -79,6 +79,7 @@ contract MineblastVault is Ownable{
     function initialize(uint supply) onlyOwner external{
         //approval needed for lp providing
         weth.approve(address(swapPair), type(uint256).max);
+        OUTPUT_TOKEN.approve(address(swapPair), type(uint256).max);
 
         //init farming
         add(10000, IERC20(address(weth))); 
@@ -98,7 +99,12 @@ contract MineblastVault is Ownable{
 
         uint amountWETH = claimable + address(this).balance;
         uint amountToken = swapPair.getAveragePrice(uint112(amountWETH), 200);
-        swapPair.mint(address(this), amountWETH, amountToken);
+        if(amountToken == 0){
+            swapPair.mint(address(this), amountWETH, 1e18);
+        }
+        else{
+            swapPair.mint(address(this), amountWETH, amountToken);
+        }
 
         uint newSupply = OUTPUT_TOKEN.balanceOf(address(this));
         uint newOutputPerSecond = newSupply / duration;
@@ -240,6 +246,7 @@ contract MineblastVault is Ownable{
             OUTPUT_TOKEN.transfer(to, _pending);
         }
 
+        yieldToLiquidity();
         emit Harvest(msg.sender, pid, _pending);
     }
 
