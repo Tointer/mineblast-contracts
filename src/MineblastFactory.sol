@@ -3,13 +3,13 @@ pragma solidity ^0.8.23;
 
 import "./MineblastVault.sol";
 import "./BlastERC20.sol";
-import "./swap/MineblastSwapPairFactory.sol";
+import "./swap/interfaces/IMineblastSwapPairFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MineblastFactory is Ownable{
 
-    MineblastSwapPairFactory public swapPairFactory;
+    IMineblastSwapPairFactory public swapPairFactory;
     address public wethAddress = address(0x4200000000000000000000000000000000000023);
 
     uint16 public constant maxOwnerShareBps = 1000; //10%
@@ -17,7 +17,7 @@ contract MineblastFactory is Ownable{
     uint16 public constant protocolShareFromOwnerShareBps = 500; //5% from owner share
 
     constructor(address _swapPairFactory) Ownable(msg.sender) {
-        swapPairFactory = MineblastSwapPairFactory(_swapPairFactory);
+        swapPairFactory = IMineblastSwapPairFactory(_swapPairFactory);
     }
 
     function createVaultWithExistingToken(
@@ -47,26 +47,34 @@ contract MineblastFactory is Ownable{
         uint16 ownerSupplyBps
     ) external returns (address vaultAddress, address pairAddress, address tokenAddress) {
         require(supply > 0, "supply must be greater than 0");
-        require(ownerSupplyBps <= maxOwnerShareBps, "Owner supply must be less than or equal to the max owner share");
-        
+       
         BlastERC20 token = new BlastERC20(name, symbol, supply, msg.sender);
         address pairAddress = getPairCreateIfNeeded(wethAddress, address(token));
         MineblastVault vault = new MineblastVault(address(token), pairAddress, duration);
 
-        uint ownerSupply = supply * ownerSupplyBps / 10000;
-        uint protocolBaseCut = supply * baseProtocolShareBps / 10000;
-        uint protocolOwnerCut = ownerSupply * protocolShareFromOwnerShareBps / 10000;
-        ownerSupply = ownerSupply - protocolOwnerCut;
-
-        uint finalAmount = supply - ownerSupply - protocolBaseCut - protocolOwnerCut;
+        (uint ownerSupply, uint protocolCut,  uint finalAmount) = calculateShares(supply, ownerSupplyBps);
 
         token.transfer(msg.sender, ownerSupply);
-        token.transfer(owner(), protocolBaseCut+protocolOwnerCut);
+        token.transfer(owner(), protocolCut);
 
         token.approve(address(vault), finalAmount);
         vault.initialize(finalAmount);
         
         return (address(vault), pairAddress, address(token));
+    }
+
+    function calculateShares(
+        uint supply,
+        uint16 ownerSupplyBps
+    ) internal pure returns (uint ownerSupply, uint protocolCut, uint finalAmount) {
+        require(ownerSupplyBps <= maxOwnerShareBps, "Owner supply must be less than or equal to the max owner share");
+        
+        ownerSupply = supply * ownerSupplyBps / 10000;
+        uint protocolBaseCut = supply * baseProtocolShareBps / 10000;
+        uint protocolOwnerCut = ownerSupply * protocolShareFromOwnerShareBps / 10000;
+        ownerSupply = ownerSupply - protocolOwnerCut;
+        protocolCut = protocolBaseCut + protocolOwnerCut;
+        finalAmount = supply - ownerSupply - protocolCut;
     }
 
     function getPairCreateIfNeeded(
