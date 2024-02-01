@@ -1,0 +1,275 @@
+pragma solidity ^0.8.23;
+
+import './libraries/TransferHelper.sol';
+import './libraries/MineblastLibrary.sol';
+import './libraries/SafeMath.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../blast/IERC20Rebasing.sol";
+import './MineblastSwapPair.sol';
+import {WETH} from 'solmate/tokens/WETH.sol';
+
+contract MineblastRouter {
+    using SafeMath for uint;
+
+    address public immutable factory;
+    address payable public immutable WETHaddr;
+
+    modifier ensure(uint deadline) {
+        require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
+        _;
+    }
+
+    constructor(address _factory, address payable _WETHaddr) {
+        factory = _factory;
+        WETHaddr = _WETHaddr;
+    }
+
+    receive() external payable {
+        assert(msg.sender == WETHaddr); // only accept ETH via fallback from the WETH contract
+    }
+
+    // **** ADD LIQUIDITY ****
+    function _addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin
+    ) internal virtual returns (uint amountA, uint amountB) {
+        // CHANGED: in mineblast, pair always exists, since it created along with token
+        (uint reserveA, uint reserveB) = MineblastLibrary.getReserves(factory, tokenA, tokenB);
+        if (reserveA == 0 && reserveB == 0) {
+            (amountA, amountB) = (amountADesired, amountBDesired);
+        } else {
+            uint amountBOptimal = MineblastLibrary.quote(amountADesired, reserveA, reserveB);
+            if (amountBOptimal <= amountBDesired) {
+                require(amountBOptimal >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
+                (amountA, amountB) = (amountADesired, amountBOptimal);
+            } else {
+                uint amountAOptimal = MineblastLibrary.quote(amountBDesired, reserveB, reserveA);
+                assert(amountAOptimal <= amountADesired);
+                require(amountAOptimal >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
+                (amountA, amountB) = (amountAOptimal, amountBDesired);
+            }
+        }
+    }
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
+        (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
+        address pair = MineblastLibrary.pairFor(factory, tokenA, tokenB);
+        liquidity = MineblastSwapPair(pair).mint(to, amountA, amountB);
+    }
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external virtual payable ensure(deadline) returns (uint amountToken, uint amountETH, uint liquidity) {
+        (amountToken, amountETH) = _addLiquidity(
+            token,
+            WETHaddr,
+            amountTokenDesired,
+            msg.value,
+            amountTokenMin,
+            amountETHMin
+        );
+        address pair = MineblastLibrary.pairFor(factory, token, WETHaddr);
+        liquidity = MineblastSwapPair(pair).mint(to, amountETH, amountToken);
+        // refund dust eth, if any
+        if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+    }
+
+    // **** REMOVE LIQUIDITY ****
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) public virtual ensure(deadline) returns (uint amountA, uint amountB) {
+        address pair = MineblastLibrary.pairFor(factory, tokenA, tokenB);
+        MineblastSwapPair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
+        (uint amount0, uint amount1) = MineblastSwapPair(pair).burn(to);
+        (address token0,) = MineblastLibrary.sortTokens(tokenA, tokenB);
+        (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
+        require(amountA >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
+        require(amountB >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
+    }
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) public virtual ensure(deadline) returns (uint amountToken, uint amountETH) {
+        (amountToken, amountETH) = removeLiquidity(
+            token,
+            WETHaddr,
+            liquidity,
+            amountTokenMin,
+            amountETHMin,
+            address(this),
+            deadline
+        );
+        TransferHelper.safeTransfer(token, to, amountToken);
+        WETH(WETHaddr).withdraw(amountETH);
+        TransferHelper.safeTransferETH(to, amountETH);
+    }
+
+    // **** SWAP ****
+    // requires the initial amount to have already been sent to the first pair
+    function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
+        for (uint i; i < path.length - 1; i++) {
+            (address input, address output) = (path[i], path[i + 1]);
+            (address token0,) = MineblastLibrary.sortTokens(input, output);
+            uint amountIn = amounts[i];
+            uint amountOut = amounts[i + 1];
+            (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
+            (uint amount0In, uint amount1In) = input == token0 ? (amountIn, uint(0)) : (uint(0), amountIn);
+            address to = i < path.length - 2 ? MineblastLibrary.pairFor(factory, output, path[i + 2]) : _to;
+            MineblastSwapPair(MineblastLibrary.pairFor(factory, input, output)).swap(
+                amount0In, amount1In, amount0Out, amount1Out, to, new bytes(0)
+            );
+        }
+    }
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
+        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        _swap(amounts, path, to);
+    }
+    function swapTokensForExactTokens(
+        uint amountOut,
+        uint amountInMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external virtual ensure(deadline) returns (uint[] memory amounts) {
+        amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
+        require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        _swap(amounts, path, to);
+    }
+    function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
+        external
+        virtual
+    
+        payable
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[0] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        amounts = MineblastLibrary.getAmountsOut(factory, msg.value, path);
+        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        WETH(WETHaddr).deposit{value: amounts[0]}();
+        _swap(amounts, path, to);
+    }
+    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
+        external
+        virtual
+    
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
+        require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        _swap(amounts, path, address(this));
+        WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
+        external
+        virtual
+    
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
+        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        _swap(amounts, path, address(this));
+        WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+    function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
+        external
+        virtual
+    
+        payable
+        ensure(deadline)
+        returns (uint[] memory amounts)
+    {
+        require(path[0] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
+        require(amounts[0] <= msg.value, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        WETH(WETHaddr).deposit{value: amounts[0]}();
+        _swap(amounts, path, to);
+        // refund dust eth, if any
+        if (msg.value > amounts[0]) TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
+    }
+
+
+    // **** LIBRARY FUNCTIONS ****
+    function quote(uint amountA, uint reserveA, uint reserveB) public pure virtual returns (uint amountB) {
+        return MineblastLibrary.quote(amountA, reserveA, reserveB);
+    }
+
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut)
+        public
+        pure
+        virtual
+    
+        returns (uint amountOut)
+    {
+        return MineblastLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
+    }
+
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut)
+        public
+        pure
+        virtual
+    
+        returns (uint amountIn)
+    {
+        return MineblastLibrary.getAmountIn(amountOut, reserveIn, reserveOut);
+    }
+
+    function getAmountsOut(uint amountIn, address[] memory path)
+        public
+        view
+        virtual
+    
+        returns (uint[] memory amounts)
+    {
+        return MineblastLibrary.getAmountsOut(factory, amountIn, path);
+    }
+
+    function getAmountsIn(uint amountOut, address[] memory path)
+        public
+        view
+        virtual
+    
+        returns (uint[] memory amounts)
+    {
+        return MineblastLibrary.getAmountsIn(factory, amountOut, path);
+    }
+}
