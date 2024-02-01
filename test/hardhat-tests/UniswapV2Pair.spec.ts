@@ -5,9 +5,9 @@ import { ethers } from "hardhat"
 import { expandTo18Decimals, encodePrice } from './shared/utilities'
 import { pairFixture } from './shared/fixtures'
 
-import { MineblastSwapPairFactory } from "../typechain-types"
-import { MineblastSwapPair } from "../typechain-types"
-import { ERC20Mock } from "..//typechain-types"
+import { MineblastSwapPairFactory } from "../../typechain-types"
+import { MineblastSwapPair } from "../../typechain-types"
+import { ERC20Mock } from "../../typechain-types"
 
 import { Signer } from "ethers";
 
