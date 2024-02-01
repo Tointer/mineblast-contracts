@@ -6,9 +6,10 @@ import "./blast/IERC20Rebasing.sol";
 import './swap/MineblastSwapPair.sol';
 import 'solmate/tokens/WETH.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @notice modified SushiSwap MiniChefV2 contract
-contract MineblastVault{
+contract MineblastVault is Ownable{
     /// @notice Info of each MCV2 user.
     /// `amount` LP token amount the user has provided.
     /// `rewardDebt` The amount of OUTPUT_TOKEN entitled to the user.
@@ -62,19 +63,25 @@ contract MineblastVault{
 
     /// @param _outputToken The OUTPUT_TOKEN token contract address.
     constructor(
-        IERC20 _outputToken, 
-        MineblastSwapPair _swapPair, 
-        uint128 supply, 
+        address _outputToken, 
+        address _swapPair, 
         uint64 _duration
-    ) {
-        OUTPUT_TOKEN = _outputToken;
-        swapPair = _swapPair;
-        weth.approve(address(swapPair), type(uint256).max);
+    ) Ownable(msg.sender) {
+        OUTPUT_TOKEN = IERC20(_outputToken);
+        swapPair = MineblastSwapPair(_swapPair);
         duration = _duration;
+
+        //configure gas and yield claim modes
         BLAST.configure(YieldMode.CLAIMABLE, GasMode.CLAIMABLE, address(this));
+        IERC20Rebasing(address(weth)).configure(YieldMode.CLAIMABLE);
+    }
 
+    function initialize(uint supply) onlyOwner external{
+        //approval needed for lp providing
+        weth.approve(address(swapPair), type(uint256).max);
+
+        //init farming
         add(10000, IERC20(address(weth))); 
-
         OUTPUT_TOKEN.transferFrom(msg.sender, address(this), supply);
         setOutputPerSecond(supply / duration);
     }
