@@ -40,7 +40,7 @@ contract MineblastSwapPairTest is Test {
         vm.warp(block.timestamp + 1000);
 
         uint priceAfterSwap1 = getCurrentToken0Price();
-        uint token0VWAPOutput = pair.getAveragePrice1(1e18, 100);
+        uint token0VWAPOutput = pair.getAveragePrice(1e18, 100);
         assertApproxEqRel(token0VWAPOutput, priceAfterSwap1, 0.01e18);
 
         vm.roll(block.number + 1);
@@ -48,7 +48,7 @@ contract MineblastSwapPairTest is Test {
 
         swapToken0(1e18); //buy token1
         //assert same-block swap can't impact VWAP
-        token0VWAPOutput = pair.getAveragePrice1(1e18, 100);
+        token0VWAPOutput = pair.getAveragePrice(1e18, 100);
         assertApproxEqRel(token0VWAPOutput, priceAfterSwap1, 0.01e18);
     }
 
