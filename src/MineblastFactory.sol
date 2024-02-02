@@ -50,7 +50,7 @@ contract MineblastFactory is Ownable{
         require(supply > 0, "supply must be greater than 0");
        
         BlastERC20 token = new BlastERC20(name, symbol, supply, msg.sender);
-        address pairAddress = getPairCreateIfNeeded(wethAddress, address(token));
+        pairAddress = getPairCreateIfNeeded(wethAddress, address(token));
         MineblastVault vault = new MineblastVault(address(token), pairAddress, duration);
 
         (uint ownerSupply, uint protocolCut,  uint finalAmount) = calculateShares(supply, ownerSupplyBps);
