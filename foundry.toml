@@ -24,4 +24,5 @@ blast_testnet = "${BLAST_TESTNET_RPC}"
 
 [etherscan]
 arbitrum = {key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api"}
+blast_testnet = {key = "verifyContract", url = "https://api.routescan.io/v2/network/testnet/evm/168587773/etherscan"}
 eth = {key = "${ETHERSCAN_KEY}"}
