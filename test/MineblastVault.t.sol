@@ -75,6 +75,26 @@ contract MineblastSwapPairTest is Test {
         assertEq(token.balanceOf(user1), rewardSupply * 5000 / duration);
     }
 
+    function test_farm_and_harvest_after_end() public {
+        uint supply = 1e21;
+        uint16 creatorShare = 0;
+        uint64 duration = 10000;
+        (MineblastVault vault, MineblastSwapPair swapPair, IERC20 token) 
+            = createVault(supply, creatorShare, duration);
+
+        vm.startPrank(user1);
+        wethMock.approve(address(vault), 1e21);
+        vault.deposit(0, 1e20, user1);
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + duration*2);
+        vault.harvest(0, user1);
+        vm.stopPrank();
+
+        uint rewardSupply = supply - (supply * mineblastFactory.baseProtocolShareBps() / 10000);
+
+        assertEq(token.balanceOf(user1), rewardSupply);
+    }
+
     function test_liqudity_add_empty_pool() public {
         uint supply = 1e21;
         uint16 creatorShare = 0;
