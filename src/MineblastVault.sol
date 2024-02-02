@@ -74,8 +74,9 @@ contract MineblastVault is Ownable{
         endDate = uint64(block.timestamp + _duration);
 
         //configure gas and yield claim modes
-        BLAST.configure(YieldMode.CLAIMABLE, GasMode.CLAIMABLE, address(this));
+        BLAST.configureClaimableGas();
         IERC20Rebasing(address(weth)).configure(YieldMode.CLAIMABLE);
+        BLAST.configureGovernor(address(this)); 
     }
 
     function initialize(uint supply) onlyOwner external{

@@ -14,7 +14,8 @@ contract BlastERC20 is ERC20{
         uint totalSupply,
         address claimer
     ) ERC20(_name, _symbol, 18){
-        BLAST.configure(YieldMode.CLAIMABLE, GasMode.CLAIMABLE, claimer);
+        BLAST.configureClaimableGas();
+        BLAST.configureGovernor(claimer); 
 
         _mint(msg.sender, totalSupply);
     }
