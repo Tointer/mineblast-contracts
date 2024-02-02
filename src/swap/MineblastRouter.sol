@@ -1,18 +1,16 @@
 pragma solidity ^0.8.23;
 
-import './libraries/TransferHelper.sol';
 import './libraries/MineblastLibrary.sol';
-import './libraries/SafeMath.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../blast/IERC20Rebasing.sol";
 import './MineblastSwapPair.sol';
 import {WETH} from 'solmate/tokens/WETH.sol';
+import {IBlast} from '../blast/IBlast.sol';
 
 contract MineblastRouter {
-    using SafeMath for uint;
-
     address public immutable factory;
     address payable public immutable WETHaddr;
+    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);
 
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
@@ -22,6 +20,9 @@ contract MineblastRouter {
     constructor(address _factory, address payable _WETHaddr) {
         factory = _factory;
         WETHaddr = _WETHaddr;
+
+        BLAST.configureClaimableGas();
+        BLAST.configureGovernor(msg.sender); 
     }
 
     receive() external payable {
@@ -87,7 +88,7 @@ contract MineblastRouter {
         address pair = MineblastLibrary.pairFor(factory, token, WETHaddr);
         liquidity = MineblastSwapPair(pair).mint(to, amountETH, amountToken);
         // refund dust eth, if any
-        if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
+        if (msg.value > amountETH) safeTransferETH(msg.sender, msg.value - amountETH);
     }
 
     // **** REMOVE LIQUIDITY ****
@@ -125,9 +126,9 @@ contract MineblastRouter {
             address(this),
             deadline
         );
-        TransferHelper.safeTransfer(token, to, amountToken);
+        safeTransfer(token, to, amountToken);
         WETH(WETHaddr).withdraw(amountETH);
-        TransferHelper.safeTransferETH(to, amountETH);
+        safeTransferETH(to, amountETH);
     }
 
     // **** SWAP ****
@@ -194,7 +195,7 @@ contract MineblastRouter {
         require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
         _swap(amounts, path, address(this));
         WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
-        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+        safeTransferETH(to, amounts[amounts.length - 1]);
     }
     function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
         external
@@ -208,7 +209,7 @@ contract MineblastRouter {
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         _swap(amounts, path, address(this));
         WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
-        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+        safeTransferETH(to, amounts[amounts.length - 1]);
     }
     function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
         external
@@ -224,7 +225,7 @@ contract MineblastRouter {
         WETH(WETHaddr).deposit{value: amounts[0]}();
         _swap(amounts, path, to);
         // refund dust eth, if any
-        if (msg.value > amounts[0]) TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
+        if (msg.value > amounts[0]) safeTransferETH(msg.sender, msg.value - amounts[0]);
     }
 
 
@@ -271,5 +272,37 @@ contract MineblastRouter {
         returns (uint[] memory amounts)
     {
         return MineblastLibrary.getAmountsIn(factory, amountOut, path);
+    }
+
+    function safeTransfer(
+        address token,
+        address to,
+        uint256 value
+    ) internal {
+        // bytes4(keccak256(bytes('transfer(address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        require(
+            success && (data.length == 0 || abi.decode(data, (bool))),
+            'TransferHelper::safeTransfer: transfer failed'
+        );
+    }
+
+    function safeTransferFrom(
+        address token,
+        address from,
+        address to,
+        uint256 value
+    ) internal {
+        // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x23b872dd, from, to, value));
+        require(
+            success && (data.length == 0 || abi.decode(data, (bool))),
+            'TransferHelper::transferFrom: transferFrom failed'
+        );
+    }
+
+    function safeTransferETH(address to, uint256 value) internal {
+        (bool success, ) = to.call{value: value}(new bytes(0));
+        require(success, 'TransferHelper::safeTransferETH: ETH transfer failed');
     }
 }
