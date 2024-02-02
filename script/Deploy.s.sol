@@ -33,6 +33,10 @@ contract DeployScript is Script {
         
         vm.stopBroadcast();
 
+        console2.log("swapPairFactory: ", address(swapPairFactory));
+        console2.log("mineblastFactory: ", address(mineblastFactory));
+        console2.log("router: ", address(router));
+
         console2.log("Vault address: ", vaultAddress);
         console2.log("Swap pair address: ", swapPairAddress);
         console2.log("Token address: ", tokenAddress);
