@@ -27,9 +27,8 @@ contract MineblastSwapPairTest is Test {
 
     function test_vwap() public {
         vm.startPrank(user1);
-        token0.approve(address(pair), 1e21);
-        token1.approve(address(pair), 1e21);
-        pair.mint(user1, 1e19, 1e19);
+
+        mintLiqudity(user1, 1e19, 1e19);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 5);
@@ -61,7 +60,16 @@ contract MineblastSwapPairTest is Test {
         (uint token0Reserve, uint token1Reserve,) = pair.getReserves();
         uint amountOut = MineblastLibrary.getAmountOut(amountIn, token0Reserve, token1Reserve);
 
-        pair.swap(amountIn, 0, 0, amountOut, msg.sender, ""); //buy token1
+        pair.sync();
+        token0.transfer(address(pair), amountIn);
+        pair.swap(0, amountOut, msg.sender, ""); //buy token1
+    }
+
+    function mintLiqudity(address user, uint amount0, uint amount1) public {
+        pair.sync();
+        token0.transfer(address(pair), amount0);
+        token1.transfer(address(pair), amount1);
+        pair.mint(user);
     }
 
     // function testFuzz_SetNumber(uint256 x) public {
