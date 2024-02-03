@@ -8,21 +8,19 @@ import {ERC20Mock} from "../src/mocks/ERC20Mock.sol";
 import {MineblastLibrary} from "../src/swap/libraries/MineblastLibrary.sol";
 import {MineblastFactory} from "../src/MineblastFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../src/mocks/BlastMock.sol";
 import "../src/mocks/RebasingWETHMock.sol";
 import "../src/MineblastVault.sol";
+import "./shared/BlastTest.sol";
 
-contract MineblastSwapPairTest is Test {
+contract MineblastSwapPairTest is BlastTest {
     MineblastSwapPairFactory public swapPairFactory;
     MineblastFactory public mineblastFactory;
-    RebasingWETHMock public wethMock;
 
     address public coinCreator = address(0x1);
     address public protocolCreator = address(0xaaa);
     address public user1 = address(0x2);
 
     function setUp() public {
-        setUpBlastEnv();
 
         wethMock.mint(user1, 1e21);
 
@@ -115,19 +113,6 @@ contract MineblastSwapPairTest is Test {
         uint expectedLpSupply = sqrt(1e17*1e18);
         assertEq(swapPair.totalSupply(), expectedLpSupply);
         assertEq(swapPair.balanceOf(address(vault)), expectedLpSupply - 1000);
-    }
-
-    function setUpBlastEnv() public{
-        BlastMock blastMock = new BlastMock();
-        bytes memory blastCode = address(blastMock).code;
-        address blastTargetAddress = address(0x4300000000000000000000000000000000000002);
-        vm.etch(blastTargetAddress, blastCode);
-
-        RebasingWETHMock wethMockContract = new RebasingWETHMock();
-        bytes memory wethCode = address(wethMockContract).code;
-        address wethTargetAddress = address(0x4200000000000000000000000000000000000023);
-        vm.etch(wethTargetAddress, wethCode);
-        wethMock = RebasingWETHMock(payable(wethTargetAddress));
     }
 
     function createVault(
