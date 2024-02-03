@@ -17,6 +17,14 @@ contract MineblastFactory is Ownable{
     uint16 public constant baseProtocolShareBps = 50; //0.5%
     uint16 public constant protocolShareFromOwnerShareBps = 500; //5% from owner share
 
+    VaultInfo[] public allVaults;
+
+    struct VaultInfo {
+        address vault;
+        address pair;
+        address token;
+    }
+
     constructor(address _swapPairFactory) Ownable(msg.sender) {
         swapPairFactory = IMineblastSwapPairFactory(_swapPairFactory);
     }
@@ -61,6 +69,7 @@ contract MineblastFactory is Ownable{
         token.approve(address(vault), finalAmount);
         vault.initialize(finalAmount);
 
+        allVaults.push(VaultInfo(address(vault), pairAddress, address(token)));
         emit VaultCreated(address(vault), pairAddress, address(token));
         
         return (address(vault), pairAddress, address(token));
