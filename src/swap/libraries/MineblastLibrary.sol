@@ -1,6 +1,7 @@
 pragma solidity ^0.8.23;
 
 import '../MineblastSwapPair.sol';
+import '../MineblastSwapPairFactory.sol';
 import "./SafeMath.sol";
 
 library MineblastLibrary {
@@ -14,14 +15,9 @@ library MineblastLibrary {
     }
 
     // calculates the CREATE2 address for a pair without making any external calls
-    function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+    function pairFor(address factory, address tokenA, address tokenB) internal view returns (address pair) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
-        pair = address(bytes20(keccak256(abi.encodePacked(
-                hex'ff',
-                factory,
-                keccak256(abi.encodePacked(token0, token1)),
-                hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
-            ))));
+        return MineblastSwapPairFactory(factory).getPair(token0, token1);
     }
 
     // fetches and sorts the reserves for a pair
@@ -29,8 +25,8 @@ library MineblastLibrary {
         (address token0,) = sortTokens(tokenA, tokenB);
         (uint reserve0, uint reserve1,) = MineblastSwapPair(pairFor(factory, tokenA, tokenB)).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
-    }
 
+    }
 
     // given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
     function quote(uint amountA, uint reserveA, uint reserveB) internal pure returns (uint amountB) {
