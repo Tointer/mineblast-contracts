@@ -131,32 +131,27 @@ contract MineblastSwapPair is UniswapV2ERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function mint(address to, uint token0Amount, uint token1Amount) external lock returns (uint liquidity) {
-        internalSync(); //sync to account for rebasing rewards and not gifting them to minter
+    function mint(address to) external lock returns (uint liquidity) {
+        require(blockTimestampLast == block.timestamp, 'MineblastSwap: SYNC_FIRST');
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-
-        //because of sync we can't expect transfers uniswap's way, need to transfer them here manually 
-        if(token0Amount > 0) IERC20(token0).transferFrom(msg.sender, address(this), token0Amount);
-        if(token1Amount > 0) IERC20(token1).transferFrom(msg.sender, address(this), token1Amount);
-
-        // reserves is equal to balances before transfers because of sync
-        // BUT this will break if token0 or token1 have fee on transfer or something like that
-        uint balance0 = _reserve0 + token0Amount; 
-        uint balance1 = _reserve1 + token1Amount;
+        uint balance0 = IERC20(token0).balanceOf(address(this));
+        uint balance1 = IERC20(token1).balanceOf(address(this));
+        uint amount0 = balance0.sub(_reserve0);
+        uint amount1 = balance1.sub(_reserve1);
 
         uint _totalSupply = totalSupply; // gas savings
         if (_totalSupply == 0) {
-            liquidity = Math.sqrt(token0Amount.mul(token1Amount)).sub(MINIMUM_LIQUIDITY);
+            liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = Math.min(token0Amount.mul(_totalSupply) / _reserve0, token1Amount.mul(_totalSupply) / _reserve1);
+            liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
         }
         require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         _mint(to, liquidity);
 
         _update(balance0, balance1, _reserve0, _reserve1);
 
-        emit Mint(msg.sender, token0Amount, token1Amount);
+        emit Mint(msg.sender, amount0, amount1);
     }
 
     // this low-level function should be called from a contract which performs important safety checks
@@ -184,14 +179,9 @@ contract MineblastSwapPair is UniswapV2ERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function swap(uint token0AmountIn, uint token1AmountIn, uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
-        internalSync(); //sync to account for rebasing rewards and not gifting them to caller
-
-        //because of sync we can't expect transfers uniswap's way, need to transfer them here manually 
-        if (token0AmountIn > 0) IERC20(token0).transferFrom(msg.sender, address(this), token0AmountIn);
-        if (token1AmountIn > 0) IERC20(token1).transferFrom(msg.sender, address(this), token1AmountIn);
-
+        require(blockTimestampLast == block.timestamp, 'MineblastSwap: SYNC_FIRST');
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
 
@@ -204,14 +194,12 @@ contract MineblastSwapPair is UniswapV2ERC20 {
         if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
         if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
         if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
-
         balance0 = IERC20(_token0).balanceOf(address(this));
         balance1 = IERC20(_token1).balanceOf(address(this));
         }
-
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
-
+        require(amount0In > 0 || amount1In > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
         uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
         uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));

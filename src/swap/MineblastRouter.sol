@@ -6,6 +6,7 @@ import "../blast/IERC20Rebasing.sol";
 import './MineblastSwapPair.sol';
 import {WETH} from 'solmate/tokens/WETH.sol';
 import {IBlast} from '../blast/IBlast.sol';
+import {Test, console2} from "forge-std/Test.sol";
 
 contract MineblastRouter {
     address public immutable factory;
@@ -67,7 +68,12 @@ contract MineblastRouter {
     ) external virtual ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         address pair = MineblastLibrary.pairFor(factory, tokenA, tokenB);
-        liquidity = MineblastSwapPair(pair).mint(to, amountA, amountB);
+
+        MineblastSwapPair(pair).sync();
+        safeTransferFrom(tokenA, msg.sender, pair, amountA);
+        safeTransferFrom(tokenB, msg.sender, pair, amountB);
+
+        liquidity = MineblastSwapPair(pair).mint(to);
     }
     function addLiquidityETH(
         address token,
@@ -86,7 +92,11 @@ contract MineblastRouter {
             amountETHMin
         );
         address pair = MineblastLibrary.pairFor(factory, token, WETHaddr);
-        liquidity = MineblastSwapPair(pair).mint(to, amountETH, amountToken);
+        MineblastSwapPair(pair).sync();
+        safeTransferFrom(token, msg.sender, pair, amountToken);
+        WETH(WETHaddr).deposit{value: amountETH}();
+        assert(WETH(WETHaddr).transfer(pair, amountETH));
+        liquidity = MineblastSwapPair(pair).mint(to);
         // refund dust eth, if any
         if (msg.value > amountETH) safeTransferETH(msg.sender, msg.value - amountETH);
     }
@@ -137,13 +147,12 @@ contract MineblastRouter {
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = MineblastLibrary.sortTokens(input, output);
-            uint amountIn = amounts[i];
             uint amountOut = amounts[i + 1];
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
-            (uint amount0In, uint amount1In) = input == token0 ? (amountIn, uint(0)) : (uint(0), amountIn);
             address to = i < path.length - 2 ? MineblastLibrary.pairFor(factory, output, path[i + 2]) : _to;
+            if(i != 0) MineblastSwapPair(MineblastLibrary.pairFor(factory, input, output)).sync();
             MineblastSwapPair(MineblastLibrary.pairFor(factory, input, output)).swap(
-                amount0In, amount1In, amount0Out, amount1Out, to, new bytes(0)
+                amount0Out, amount1Out, to, new bytes(0)
             );
         }
     }
@@ -156,6 +165,10 @@ contract MineblastRouter {
     ) external virtual ensure(deadline) returns (uint[] memory amounts) {
         amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        safeTransferFrom(
+            path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
+        );
         _swap(amounts, path, to);
     }
     function swapTokensForExactTokens(
@@ -167,6 +180,11 @@ contract MineblastRouter {
     ) external virtual ensure(deadline) returns (uint[] memory amounts) {
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        safeTransferFrom(
+            path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
+        );
         _swap(amounts, path, to);
     }
     function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
@@ -181,18 +199,23 @@ contract MineblastRouter {
         amounts = MineblastLibrary.getAmountsOut(factory, msg.value, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         WETH(WETHaddr).deposit{value: amounts[0]}();
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        assert(WETH(WETHaddr).transfer(MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
     }
     function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
         external
         virtual
-    
         ensure(deadline)
         returns (uint[] memory amounts)
     {
         require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        safeTransferFrom(
+            path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
+        );
         _swap(amounts, path, address(this));
         WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
         safeTransferETH(to, amounts[amounts.length - 1]);
@@ -207,6 +230,10 @@ contract MineblastRouter {
         require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
         amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        safeTransferFrom(
+            path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
+        );
         _swap(amounts, path, address(this));
         WETH(WETHaddr).withdraw(amounts[amounts.length - 1]);
         safeTransferETH(to, amounts[amounts.length - 1]);
@@ -223,6 +250,8 @@ contract MineblastRouter {
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= msg.value, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
         WETH(WETHaddr).deposit{value: amounts[0]}();
+        MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
+        assert(WETH(WETHaddr).transfer(MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
         // refund dust eth, if any
         if (msg.value > amounts[0]) safeTransferETH(msg.sender, msg.value - amounts[0]);
