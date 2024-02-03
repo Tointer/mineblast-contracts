@@ -37,6 +37,12 @@ async function main() {
 
     await mineblastFactory.createVaultWithNewToken(supply, "MIBTestToken", "tMIB", duration, creatorShare);
 
+    const info = await mineblastFactory.allVaults(0);
+    console.log("test vault address:", info[0]);
+    console.log("test vault pair:", info[1]);
+    console.log("test vault token address:", info[2]);
+
+
     //sleep for 15 seconds
     await new Promise(r => setTimeout(r, 15000));
     await mineblastFactory.waitForDeployment();
