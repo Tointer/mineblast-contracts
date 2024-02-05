@@ -215,6 +215,22 @@ contract MineblastVault is Ownable{
         emit Deposit(msg.sender, pid, amount, to);
     }
 
+    receive() payable external {}
+
+    function wrapAndDeposit() external payable {
+        uint256 amount = msg.value;
+        weth.deposit{value: amount}();
+
+        PoolInfo memory pool = updatePool(0);
+        UserInfo storage user = userInfo[0][msg.sender];
+
+        // Effects
+        user.amount = user.amount + amount;
+        user.rewardDebt = user.rewardDebt + int256(amount * pool.accPerShare / ACC_PRECISION);
+
+        emit Deposit(msg.sender, 0, amount, msg.sender);
+    }
+
     /// @notice Withdraw LP tokens from MCV2.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param amount LP token amount to withdraw.
@@ -230,6 +246,20 @@ contract MineblastVault is Ownable{
         depositTokens[pid].transfer(to, amount);
 
         emit Withdraw(msg.sender, pid, amount, to);
+    }
+
+    function withdrawAndUnwrap(uint256 amount, address to) public payable {
+        PoolInfo memory pool = updatePool(0);
+        UserInfo storage user = userInfo[0][msg.sender];
+
+        // Effects
+        user.rewardDebt = user.rewardDebt - (int256(amount * pool.accPerShare / ACC_PRECISION));
+        user.amount = user.amount - amount;
+
+        weth.withdraw(amount);
+        safeTransferETH(payable(to), amount);
+
+        emit Withdraw(msg.sender, 0, amount, to);
     }
 
     /// @notice Harvest proceeds for transaction sender to `to`.
@@ -290,5 +320,10 @@ contract MineblastVault is Ownable{
         // Note: transfer can fail or succeed if `amount` is zero.
         depositTokens[pid].transfer(to, amount);
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
+    }
+
+    function safeTransferETH(address to, uint256 value) internal {
+        (bool success, ) = to.call{value: value}(new bytes(0));
+        require(success, 'TransferHelper::safeTransferETH: ETH transfer failed');
     }
 }
