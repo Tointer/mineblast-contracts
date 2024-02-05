@@ -22,7 +22,10 @@ contract MineblastSwapPairTest is BlastTest {
 
     function setUp() public {
 
-        wethMock.mint(user1, 1e21);
+        vm.deal(user1, 1e21);
+        vm.startPrank(user1);
+        wethMock.deposit{value: 1e21}();
+        vm.stopPrank();
 
         vm.startPrank(protocolCreator);
         swapPairFactory = new MineblastSwapPairFactory();
@@ -71,6 +74,39 @@ contract MineblastSwapPairTest is BlastTest {
         uint rewardSupply = supply - (supply * mineblastFactory.baseProtocolShareBps() / 10000);
 
         assertEq(token.balanceOf(user1), rewardSupply * 5000 / duration);
+    }
+
+    function test_weth_helpers() public {
+        uint supply = 1e21;
+        uint16 creatorShare = 0;
+        uint64 duration = 10000;
+        (MineblastVault vault, MineblastSwapPair swapPair, IERC20 token) 
+            = createVault(supply, creatorShare, duration);
+
+        vm.deal(user1, 1e20);
+        uint userETHbefore = user1.balance;
+        uint userWETHbefore = wethMock.balanceOf(address(user1));
+        uint vaultETHbefore = address(vault).balance;
+        uint vaultWETHbefore = wethMock.balanceOf(address(vault));
+
+        vm.startPrank(user1);
+        vault.wrapAndDeposit{value: 1e20}();
+
+        assertEq(user1.balance, userETHbefore - 1e20);
+        assertEq(wethMock.balanceOf(address(vault)), 1e20);
+
+        vault.withdrawAndUnwrap(1e20, user1);
+        vm.stopPrank();
+
+        uint userETHafter = user1.balance;
+        uint userWETHafter = wethMock.balanceOf(address(user1));
+        uint vaultETHafter = address(vault).balance;
+        uint vaultWETHafter = wethMock.balanceOf(address(vault));
+
+        assertEq(userETHbefore + userWETHbefore, userETHafter + userWETHafter);
+        assertEq(vaultETHbefore + vaultWETHbefore, vaultETHafter + vaultWETHafter);
+        assertEq(user1.balance, userETHbefore);
+        assertEq(wethMock.balanceOf(address(vault)), 0);
     }
 
     function test_farm_and_harvest_after_end() public {
@@ -127,7 +163,7 @@ contract MineblastSwapPairTest is BlastTest {
 
         vm.stopPrank();
 
-        vault = MineblastVault(vaultAddress);
+        vault = MineblastVault(payable(vaultAddress));
         swapPair = MineblastSwapPair(swapPairAddress);
         token = IERC20(tokenAddress);
     }
