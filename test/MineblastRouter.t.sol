@@ -26,7 +26,10 @@ contract MineblastRouterTest is BlastTest {
         router = new MineblastRouter(address(factory), payable(wethMock));
 
         token1.mint(user1, 1e21);
-        wethMock.mint(user1, 1e21);
+        vm.deal(user1, 1e21);
+        vm.startPrank(user1);
+        wethMock.deposit{value: 1e21}();
+        vm.stopPrank();
 
         vm.startPrank(user1);
         mintLiqudity(user1, 1e20, 2e20);
@@ -36,8 +39,6 @@ contract MineblastRouterTest is BlastTest {
     function test_add_liqudity() public {
         uint wethIn = 5e18;
         uint expectedToken1Out = MineblastLibrary.quote(wethIn, 1e20, 2e20);
-        console2.log("wethIn: ", wethIn);
-        console2.log("expectedToken1Out: ", expectedToken1Out);
 
         vm.startPrank(user1);
         wethMock.approve(address(router), 1e21);
@@ -45,6 +46,39 @@ contract MineblastRouterTest is BlastTest {
         router.addLiquidity(address(wethMock), address(token1), wethIn, 
             expectedToken1Out, wethIn, expectedToken1Out, user1, block.timestamp + 1000);
         vm.stopPrank();
+    }
+
+    function test_swap_eth_to_exact_tokens() public {
+        uint wantedTokensAmount = 1e18;
+        uint userBalanceBefore = token1.balanceOf(user1);
+        vm.deal(user1, 5e18);
+
+        vm.startPrank(user1);
+        token1.approve(address(router), 1e21);
+        uint amountIn = router.getAmountIn(wantedTokensAmount, 1e20, 2e20);
+        address[] memory path = new address[](2);
+        path[0] = address(wethMock);
+        path[1] = address(token1);
+        router.swapETHForExactTokens{value: amountIn}(wantedTokensAmount, path, user1, block.timestamp + 1000);
+        vm.stopPrank();
+
+        assertEq(token1.balanceOf(user1) - userBalanceBefore, wantedTokensAmount);
+    }
+
+    function test_swap_exact_tokens_to_eth() public{
+        uint tokenSellAmount = 1e18;
+        uint userBalanceBefore = address(user1).balance;
+
+        vm.startPrank(user1);
+        token1.approve(address(router), 1e21);
+        uint amountOut = router.getAmountOut(tokenSellAmount, 2e20, 1e20);
+        address[] memory path = new address[](2);
+        path[0] = address(token1);
+        path[1] = address(wethMock);
+        router.swapExactTokensForETH(tokenSellAmount, amountOut, path, user1, block.timestamp + 1000);
+        vm.stopPrank();
+
+        assertEq(address(user1).balance - userBalanceBefore, amountOut);
     }
 
     function mintLiqudity(address user, uint amount0, uint amount1) public {
