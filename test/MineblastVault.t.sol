@@ -68,12 +68,51 @@ contract MineblastSwapPairTest is BlastTest {
         vault.deposit(0, 1e20, user1);
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + duration/2);
-        vault.harvest(0, user1);
-        vm.stopPrank();
-
         uint rewardSupply = supply - (supply * mineblastFactory.baseProtocolShareBps() / 10000);
 
-        assertEq(token.balanceOf(user1), rewardSupply * 5000 / duration);
+        assertEq(vault.getPending(0, user1), rewardSupply/2);
+        vault.harvest(0, user1);
+        assertEq(token.balanceOf(user1), rewardSupply/2);
+
+        vm.stopPrank();
+    }
+
+    function test_reduce_output_per_second() public {
+        uint supply = 3e18;
+        uint16 creatorShare = 0;
+        uint64 duration = 10000;
+        uint supplyAfterFee = supply - supply * 50 / 10000;
+        (MineblastVault vault, MineblastSwapPair swapPair, IERC20 token) 
+            = createVault(supply, creatorShare, duration);
+
+        wethMock.setClaimable(address(vault), supplyAfterFee/2);
+
+        vm.startPrank(user1);
+        wethMock.approve(address(vault), 1);
+        vault.deposit(0, 1, user1);
+        uint outputPerSecondBefore = vault.outputPerSecond();
+        uint expectedPerSecondAfter = (supplyAfterFee/2 - 1e18)/(duration/2);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + duration/2);
+        console2.log("before", vault.outputPerSecond());
+        vault.harvest(0, user1);
+        console2.log("pool tokens", token.balanceOf(address(swapPair)));
+        assertEq(vault.outputPerSecond(), expectedPerSecondAfter);
+        assertEq(token.balanceOf(user1), supplyAfterFee / 2);
+        console2.log("outputPerSecondAfter", vault.outputPerSecond());
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + duration/2);
+        assertEq(vault.getPending(0, user1), supplyAfterFee - supplyAfterFee / 2 - 1e18);
+        vault.harvest(0, user1);
+        assertEq(token.balanceOf(user1), supplyAfterFee - 1e18);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + duration/2);
+        assertEq(vault.getPending(0, user1), 0);
+
+        vm.stopPrank();
     }
 
     function test_weth_helpers() public {
