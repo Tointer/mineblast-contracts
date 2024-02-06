@@ -49,6 +49,10 @@ contract MineblastVault is Ownable{
     IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);
     uint64 public duration;
     uint64 public endDate;
+    uint64 public lastOutputChangeDate;
+    uint public unlocked;
+    uint public initialSupply;
+    uint public sentToLP;
 
     uint256 public outputPerSecond;
     uint256 private constant ACC_PRECISION = 1e12;
@@ -82,6 +86,7 @@ contract MineblastVault is Ownable{
     function initialize(uint supply) onlyOwner external{
         //init farming
         add(10000, IERC20(address(weth))); 
+        initialSupply = supply;
         OUTPUT_TOKEN.transferFrom(msg.sender, address(this), supply);
         setOutputPerSecond(supply / duration);
     }
@@ -101,12 +106,20 @@ contract MineblastVault is Ownable{
 
         swapPair.sync();
         weth.transfer(address(swapPair), amountWETH);
-        OUTPUT_TOKEN.transfer(address(swapPair), amountToken == 0? 1e18 : amountToken);
+        uint amount = amountToken == 0? 1e18 : amountToken;
+        uint currentTokenBalance = IERC20(address(OUTPUT_TOKEN)).balanceOf(address(this));
+        if(amount > currentTokenBalance){
+            amount = currentTokenBalance;
+        }
+
+        OUTPUT_TOKEN.transfer(address(swapPair), amount);
         swapPair.mint(address(this));
 
-        uint newSupply = OUTPUT_TOKEN.balanceOf(address(this));
-        uint newOutputPerSecond = newSupply / duration;
-        setOutputPerSecond(newOutputPerSecond);
+        sentToLP = sentToLP + amount;
+        unlocked = unlocked + outputPerSecond * (block.timestamp - lastOutputChangeDate);
+
+        updatePool(0);
+        setOutputPerSecond((initialSupply-sentToLP-unlocked)/(endDate-block.timestamp));
     }
 
     /// @notice Returns the number of MCV2 pools.
@@ -146,6 +159,7 @@ contract MineblastVault is Ownable{
     /// @param _outputPerSecond The amount of OUTPUT_TOKEN to be distributed per second.
     function setOutputPerSecond(uint256 _outputPerSecond) internal {
         outputPerSecond = _outputPerSecond;
+        lastOutputChangeDate = uint64(block.timestamp);
         emit LogOutputPerSecond(_outputPerSecond);
     }
 
@@ -166,6 +180,10 @@ contract MineblastVault is Ownable{
             accPerShare = accPerShare + reward * ACC_PRECISION / lpSupply;
         }
         pending = uint(int256(user.amount * accPerShare / ACC_PRECISION) - user.rewardDebt);
+    }
+
+    function getUnlocked() external view returns (uint256 unlockedAmount) {
+        unlockedAmount = unlocked + outputPerSecond * (block.timestamp - lastOutputChangeDate);
     }
 
     /// @notice Update reward variables for all pools. Be careful of gas spending!
