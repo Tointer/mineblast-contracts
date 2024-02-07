@@ -44,6 +44,7 @@ const config: HardhatUserConfig = {
     blast_sepolia: {
       url: 'https://sepolia.blast.io',
       accounts: [process.env.PRIVATE_KEY || ''],
+      chainId: 168587773,
     },
   },
 };
