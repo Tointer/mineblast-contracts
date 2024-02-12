@@ -3,6 +3,9 @@ pragma solidity ^0.8.23;
 
 import './MineblastSwapPair.sol';
 import './interfaces/IMineblastSwapPairFactory.sol';
+import "../MineblastVault.sol";
+import "../BlastERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MineblastSwapPairFactory is IMineblastSwapPairFactory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
@@ -29,5 +32,46 @@ contract MineblastSwapPairFactory is IMineblastSwapPairFactory {
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
         emit PairCreated(token0, token1, pair, allPairs.length);
+    }
+
+     //god forgive me for I have sinned
+    function getProjectInfo(address user, address payable vault, address pair, address token) 
+        external view returns (
+            string memory tokenName, 
+            string memory tokenSymbol, 
+            uint tokenTotalSupply, 
+            uint tokenPrice, 
+            uint pairETHLiqudity, 
+            uint pairTokenLiqudity,
+            uint vaultOutputPerSecond, 
+            uint vaultFarmingEndDate, 
+            uint vaultFarmingDuration, 
+            uint vaultUnlocked, 
+            uint vaultInitialSupply, 
+            uint vaultTVL, 
+            uint userLockedETH, 
+            uint userPending,
+            uint userTokenBalance
+        ) 
+    {
+        address wethAddress = address(0x4200000000000000000000000000000000000023);
+        tokenName = BlastERC20(token).name();
+        tokenSymbol = BlastERC20(token).symbol();
+        tokenTotalSupply = BlastERC20(token).totalSupply();
+        tokenPrice = MineblastSwapPair(pair).getAveragePrice(1e18, 50);
+        pairETHLiqudity = IERC20(wethAddress).balanceOf(pair);
+        pairTokenLiqudity = IERC20(token).balanceOf(pair);
+        vaultOutputPerSecond = MineblastVault(vault).outputPerSecond();
+        vaultFarmingEndDate = MineblastVault(vault).endDate();
+        vaultFarmingDuration = MineblastVault(vault).duration();
+        vaultUnlocked = MineblastVault(vault).getUnlocked();
+        vaultInitialSupply = MineblastVault(vault).initialSupply();
+
+        vaultTVL = IERC20(wethAddress).balanceOf(vault);
+
+        (uint256 amount,) = MineblastVault(vault).userInfo(0, user);
+        userLockedETH = amount;
+        userPending = MineblastVault(vault).getPending(0, user);
+        userTokenBalance = IERC20(token).balanceOf(user);
     }
 }
