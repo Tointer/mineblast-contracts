@@ -36,15 +36,36 @@ contract MineblastRouterTest is BlastTest {
         vm.stopPrank();
     }
 
-    function test_add_liqudity() public {
+    function test_add_burn_liqudity() public {
         uint wethIn = 5e18;
         uint expectedToken1Out = MineblastLibrary.quote(wethIn, 1e20, 2e20);
+
+        uint userTokenBalanceBefore = token1.balanceOf(user1);
+        uint userWethBalanceBefore = wethMock.balanceOf(user1);
 
         vm.startPrank(user1);
         wethMock.approve(address(router), 1e21);
         token1.approve(address(router), 1e21);
         router.addLiquidity(address(wethMock), address(token1), wethIn, 
             expectedToken1Out, wethIn, expectedToken1Out, user1, block.timestamp + 1000);
+
+        uint liquidity = pair.balanceOf(user1);
+        pair.approve(address(router), liquidity);
+        router.removeLiquidity(address(wethMock), address(token1), liquidity, 0, 0, user1, block.timestamp + 1000);
+        vm.stopPrank();
+
+        assertEq(token1.balanceOf(user1), userTokenBalanceBefore);
+        assertEq(wethMock.balanceOf(user1), userWethBalanceBefore);
+    }
+
+    function test_add_liqudity_eth() public {
+        uint ethIn = 5e18;
+        uint expectedToken1Out = MineblastLibrary.quote(ethIn, 1e20, 2e20);
+        vm.deal(user1, ethIn);
+
+        vm.startPrank(user1);
+        token1.approve(address(router), 1e21);
+        router.addLiquidityETH{value: ethIn}(address(token1), expectedToken1Out, expectedToken1Out, ethIn, user1, block.timestamp + 1000);
         vm.stopPrank();
     }
 
