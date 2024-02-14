@@ -8,16 +8,17 @@ import './swap/MineblastSwapPair.sol';
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MineblastFactory is Ownable{
-    event VaultCreated(address vault, address pair, address token);
+    event VaultCreated(address indexed creator, address vault, address pair, address token);
 
     IMineblastSwapPairFactory public swapPairFactory;
     address public wethAddress = address(0x4200000000000000000000000000000000000023);
 
-    uint16 public constant maxOwnerShareBps = 1000; //10%
+    uint16 public constant maxOwnerShareBps = 5000; //50%
     uint16 public constant baseProtocolShareBps = 50; //0.5%
     uint16 public constant protocolShareFromOwnerShareBps = 500; //5% from owner share
 
     VaultInfo[] public allVaults;
+    mapping(bytes32 => uint) private nameToVaultIndex;
 
     struct VaultInfo {
         address vault;
@@ -32,6 +33,10 @@ contract MineblastFactory is Ownable{
 
     function getAllVaultsLength() external view returns(uint64){
         return uint64(allVaults.length);
+    }
+
+    function getVault(string memory name) external view returns(VaultInfo memory){
+        return allVaults[nameToVaultIndex[keccak256(abi.encodePacked(name))]];
     }
 
     function getAllVaults(uint64 maxElements, uint64 offset) external view returns(VaultInfo[] memory){
@@ -55,6 +60,7 @@ contract MineblastFactory is Ownable{
         uint16 ownerSupplyBps
     ) external returns (address vaultAddress, address pairAddress, address tokenAddress) {
         require(supply > 0, "supply must be greater than 0");
+        require(nameToVaultIndex[keccak256(abi.encodePacked(name))] == 0, "Vault with this name already exists");
        
         BlastERC20 token = new BlastERC20(name, symbol, supply, msg.sender);
         pairAddress =  swapPairFactory.createPair(wethAddress, address(token));
@@ -69,7 +75,8 @@ contract MineblastFactory is Ownable{
         vault.initialize(finalAmount);
 
         allVaults.push(VaultInfo(address(vault), pairAddress, address(token), ownerSupplyBps));
-        emit VaultCreated(address(vault), pairAddress, address(token));
+        nameToVaultIndex[keccak256(abi.encodePacked(name))] = allVaults.length - 1;
+        emit VaultCreated(msg.sender, address(vault), pairAddress, address(token));
         
         return (address(vault), pairAddress, address(token));
     }
