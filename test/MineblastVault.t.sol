@@ -95,12 +95,9 @@ contract MineblastSwapPairTest is BlastTest {
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + duration/2);
-        console2.log("before", vault.outputPerSecond());
         vault.harvest(0, user1);
-        console2.log("pool tokens", token.balanceOf(address(swapPair)));
         assertEq(vault.outputPerSecond(), expectedPerSecondAfter);
         assertEq(token.balanceOf(user1), supplyAfterFee / 2);
-        console2.log("outputPerSecondAfter", vault.outputPerSecond());
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + duration/2);
