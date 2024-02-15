@@ -29,6 +29,7 @@ contract MineblastFactory is Ownable{
 
     constructor(address _swapPairFactory) Ownable(msg.sender) {
         swapPairFactory = IMineblastSwapPairFactory(_swapPairFactory);
+        allVaults.push(VaultInfo(address(0), address(0), address(0), 0));
     }
 
     function getAllVaultsLength() external view returns(uint64){
