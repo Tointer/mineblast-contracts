@@ -97,7 +97,7 @@ contract MineblastFactoryTest is BlastTest {
         uint supply, 
         uint16 creatorShare, 
         uint64 duration
-    ) public returns (MineblastVault vault, MineblastSwapPair swapPair, IERC20 token) {
+    ) public returns (MineblastVault vault, MineblastSwapPair swapPair, IERC20 erc20) {
         vm.startPrank(coinCreator);
 
         (address vaultAddress, address swapPairAddress, address tokenAddress) = 
@@ -107,7 +107,7 @@ contract MineblastFactoryTest is BlastTest {
 
         vault = MineblastVault(payable(vaultAddress));
         swapPair = MineblastSwapPair(swapPairAddress);
-        token = IERC20(tokenAddress);
+        erc20 = IERC20(tokenAddress);
     }
 
 }
