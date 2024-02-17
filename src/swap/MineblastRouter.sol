@@ -7,7 +7,6 @@ import "../blast/IERC20Rebasing.sol";
 import './MineblastSwapPair.sol';
 import {WETH} from 'solmate/tokens/WETH.sol';
 import {IBlast} from '../blast/IBlast.sol';
-import {Test, console2} from "forge-std/Test.sol";
 
 contract MineblastRouter {
     address public immutable factory;
@@ -15,7 +14,7 @@ contract MineblastRouter {
     IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);
 
     modifier ensure(uint deadline) {
-        require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
+        require(deadline >= block.timestamp, 'MineblastRouter: EXPIRED');
         _;
     }
 
@@ -47,12 +46,12 @@ contract MineblastRouter {
         } else {
             uint amountBOptimal = MineblastLibrary.quote(amountADesired, reserveA, reserveB);
             if (amountBOptimal <= amountBDesired) {
-                require(amountBOptimal >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
+                require(amountBOptimal >= amountBMin, 'MineblastRouter: INSUFFICIENT_B_AMOUNT');
                 (amountA, amountB) = (amountADesired, amountBOptimal);
             } else {
                 uint amountAOptimal = MineblastLibrary.quote(amountBDesired, reserveB, reserveA);
                 assert(amountAOptimal <= amountADesired);
-                require(amountAOptimal >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
+                require(amountAOptimal >= amountAMin, 'MineblastRouter: INSUFFICIENT_A_AMOUNT');
                 (amountA, amountB) = (amountAOptimal, amountBDesired);
             }
         }
@@ -119,8 +118,8 @@ contract MineblastRouter {
         (uint amount0, uint amount1) = MineblastSwapPair(pair).burn(to);
         (address token0,) = MineblastLibrary.sortTokens(tokenA, tokenB);
         (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
-        require(amountA >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
-        require(amountB >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
+        require(amountA >= amountAMin, 'MineblastRouter: INSUFFICIENT_A_AMOUNT');
+        require(amountB >= amountBMin, 'MineblastRouter: INSUFFICIENT_B_AMOUNT');
     }
     function removeLiquidityETH(
         address token,
@@ -168,7 +167,7 @@ contract MineblastRouter {
     ) external virtual ensure(deadline) returns (uint[] memory amounts) {
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
-        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        require(amounts[amounts.length - 1] >= amountOutMin, 'MineblastRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         safeTransferFrom(
             path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
         );
@@ -183,7 +182,7 @@ contract MineblastRouter {
     ) external virtual ensure(deadline) returns (uint[] memory amounts) {
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
-        require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        require(amounts[0] <= amountInMax, 'MineblastRouter: EXCESSIVE_INPUT_AMOUNT');
         
         safeTransferFrom(
             path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
@@ -198,10 +197,10 @@ contract MineblastRouter {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-        require(path[0] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        require(path[0] == WETHaddr, 'MineblastRouter: INVALID_PATH');
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsOut(factory, msg.value, path);
-        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        require(amounts[amounts.length - 1] >= amountOutMin, 'MineblastRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         WETH(WETHaddr).deposit{value: amounts[0]}();
         assert(WETH(WETHaddr).transfer(MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
@@ -212,10 +211,10 @@ contract MineblastRouter {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-        require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        require(path[path.length - 1] == WETHaddr, 'MineblastRouter: INVALID_PATH');
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
-        require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        require(amounts[0] <= amountInMax, 'MineblastRouter: EXCESSIVE_INPUT_AMOUNT');
         safeTransferFrom(
             path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
         );
@@ -230,10 +229,10 @@ contract MineblastRouter {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-        require(path[path.length - 1] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        require(path[path.length - 1] == WETHaddr, 'MineblastRouter: INVALID_PATH');
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsOut(factory, amountIn, path);
-        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        require(amounts[amounts.length - 1] >= amountOutMin, 'MineblastRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         safeTransferFrom(
             path[0], msg.sender, MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]
         );
@@ -249,10 +248,10 @@ contract MineblastRouter {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-        require(path[0] == WETHaddr, 'UniswapV2Router: INVALID_PATH');
+        require(path[0] == WETHaddr, 'MineblastRouter: INVALID_PATH');
         MineblastSwapPair(MineblastLibrary.pairFor(factory, path[0], path[1])).sync();
         amounts = MineblastLibrary.getAmountsIn(factory, amountOut, path);
-        require(amounts[0] <= msg.value, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        require(amounts[0] <= msg.value, 'MineblastRouter: EXCESSIVE_INPUT_AMOUNT');
         WETH(WETHaddr).deposit{value: amounts[0]}();
         assert(WETH(WETHaddr).transfer(MineblastLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
