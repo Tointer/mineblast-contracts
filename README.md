@@ -1,16 +1,6 @@
-## Foundry hackathon experience inspired starter
+## Mineblast contracts
 
-Deleting things is easier than installing them, so this starter goal is to be bulky but cover most potential projects
-
-## Installed libraries
-
-* Solmate
-* Open Zeppelin contracts
-
-## Mocks
-
-* ERC20: public mint, burn, permit
-* ERC721: enumerable, public mint, burn
+Frontend repo is [here](https://github.com/dragoonzx/blast-hack-frontend)
 
 ## Usage
 
